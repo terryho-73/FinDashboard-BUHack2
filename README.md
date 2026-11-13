@@ -2,7 +2,9 @@
 
 Bilingual, mobile-first savings dashboard for university students, fresh graduates, and young professionals in Hong Kong.
 
-**Repository status:** Specification and agent guidance live here; application code (client, server, shared, tests) is **not yet scaffolded**. The full implementation blueprint is in [`hkbu-genai-response-2026-11-13T16-38-29-666Z.md`](hkbu-genai-response-2026-11-13T16-38-29-666Z.md).
+**Repository status:** Specification and agent guidance live here; application code (`client/`, `server/`, `shared/`, `tests/`) is **not yet scaffolded**.
+
+**Build specification:** [`PLAN.md`](PLAN.md) — milestones, API, data model, financial rules, testing, and contributor workflow.
 
 ## What this app does
 
@@ -40,16 +42,16 @@ Use **Bootstrap CSS with Vue-controlled interactions** (avoid loading Bootstrap�
 ## Planned repository layout
 
 ```text
-pocketgoals-hk/          # or this repo root once scaffolded
 ├── README.md
-├── client/              # Vue app
-├── server/              # Express API
-├── shared/              # Shared financial logic
-├── docs/                # API contract, data model, threat model, etc.
+├── PLAN.md
+├── client/
+├── server/
+├── shared/
+├── docs/
 └── tests/
 ```
 
-See section 6 of the [blueprint](hkbu-genai-response-2026-11-13T16-38-29-666Z.md) for the full folder tree and backend module convention (`routes` → `controller` → `service` → `repository` → `schema`).
+Full tree and module conventions: see [`PLAN.md` §4](PLAN.md).
 
 ## MVP features
 
@@ -81,7 +83,7 @@ Rules:
 - Payment method (Octopus, FPS, etc.) does **not** define transaction meaning.
 - Goal allocation moves tracked balance into a bucket—it is not income and not a bank transfer.
 
-Safe-to-spend (MVP): balance-based discretionary allowance divided by remaining days in the planning period, with explicit warnings for missing or stale data.
+Safe-to-spend (MVP): balance-based discretionary allowance divided by remaining days in the planning period, with explicit warnings for missing or stale data. Details in [`PLAN.md` §7](PLAN.md).
 
 ## Development modes
 
@@ -92,14 +94,9 @@ Safe-to-spend (MVP): balance-based discretionary allowance divided by remaining 
 
 ## Suggested build order
 
-1. **UI prototype** — layout, dashboard, goals, expense form, i18n, privacy mode, mock data  
-2. **Financial logic** — balances, classifications, allocations, safe-to-spend, unit tests  
-3. **Persistence** — migrations, auth, API, ownership, export/delete  
-4. **Import & insights** — CSV pipeline, duplicates, summaries  
-5. **Optional** — HKMA adapter, read-only AI coach  
-6. **Production prep** — a11y, security, privacy, ops  
+See [`PLAN.md` §14](PLAN.md) for milestones 0–6 (UI prototype → financial logic → persistence → import → integrations → production).
 
-Do **not** block milestones 1–5 on bank aggregation.
+Do **not** block early milestones on bank aggregation.
 
 ## Initial setup (when scaffolding)
 
@@ -121,36 +118,16 @@ npm init -y && npm pkg set type=module
 npm install express pg zod helmet express-rate-limit dotenv
 ```
 
-Environment examples:
-
-```env
-# client/.env
-VITE_API_BASE_URL=/api
-VITE_DEMO_MODE=true
-```
-
-```env
-# server/.env (never commit secrets)
-PORT=3000
-DATABASE_URL=postgresql://user:password@localhost:5432/pocketgoals
-SESSION_SECRET=replace-with-a-strong-random-secret
-AI_ENABLED=false
-```
-
-Never put private API keys in `VITE_*` variables.
+Environment examples are documented in [`PLAN.md` §10.2](PLAN.md). Never put private API keys in `VITE_*` variables.
 
 ## Working with Cursor
 
-Project skill for implementers and agents: [`.cursor/skills/pocketgoals-hk/SKILL.md`](.cursor/skills/pocketgoals-hk/SKILL.md). It encodes stack constraints, financial rules, security expectations, and milestone order from the blueprint.
+Project skill for implementers and agents: [`.cursor/skills/pocketgoals-hk/SKILL.md`](.cursor/skills/pocketgoals-hk/SKILL.md).
 
 ## Hackathon / course context
 
-This repo (**BUHack2**) holds the HKBU GenAI–derived product spec and tooling to build **PocketGoals HK** consistently across sessions.
+This repo (**BUHack2**) is the home for **PocketGoals HK** implementation work.
 
 ## License
 
 TBD—add before public distribution.
-
-## References
-
-- Full PRD, API tables, starter code snippets, and copy-paste dev prompt: [`hkbu-genai-response-2026-11-13T16-38-29-666Z.md`](hkbu-genai-response-2026-11-13T16-38-29-666Z.md)
