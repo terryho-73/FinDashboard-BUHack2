@@ -20,7 +20,8 @@ import {
   type Tx,
 } from "@/lib/finance"
 import { cn } from "@/lib/utils"
-import { downloadOfflineBackup } from "@/lib/offline-store"
+
+import { downloadOfflineBackup, triggerJsonDownload } from "@/lib/offline-store"
 import { useSavingsData } from "@/lib/savings-data"
 import { exportTransactionsToCsv } from "@/lib/csv-export"
 
@@ -89,6 +90,21 @@ export function ChipRow({ children }: { children: ReactNode }) {
   return <div className="flex flex-wrap gap-2">{children}</div>
 }
 
+/** Allow only digits and a single decimal point (money fields). */
+function sanitizeMoneyInput(raw: string): string {
+  let cleaned = raw.replace(/[^\d.]/g, "")
+  const dot = cleaned.indexOf(".")
+  if (dot !== -1) {
+    cleaned = cleaned.slice(0, dot + 1) + cleaned.slice(dot + 1).replace(/\./g, "")
+    const [whole, frac = ""] = cleaned.split(".")
+    cleaned = frac.length > 2 ? `${whole}.${frac.slice(0, 2)}` : cleaned
+  }
+  if (cleaned.length > 1 && cleaned.startsWith("0") && cleaned[1] !== ".") {
+    cleaned = cleaned.replace(/^0+/, "") || "0"
+  }
+  return cleaned
+}
+
 function parseAmount(v: string) {
   const n = Number(v.replace(/,/g, ""))
   return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 0
@@ -145,7 +161,15 @@ export function ExpenseSheet(props: SheetProps) {
       </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label={t.amountLabel}>
-          <Input inputMode="decimal" value={amountText} onChange={(e) => setAmountText(e.target.value)} placeholder="38" />
+          <Input
+            inputMode="decimal"
+            pattern="[0-9]*[.]?[0-9]*"
+            autoComplete="off"
+            value={amountText}
+            onChange={(e) => setAmountText(sanitizeMoneyInput(e.target.value))}
+            placeholder="38"
+            aria-label={t.amountLabel}
+          />
         </Field>
         <Field label={t.dateLabel}>
           <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -235,7 +259,15 @@ export function TopUpSheet(props: SheetProps & { initialJarId?: string }) {
             </ChipRow>
           </Field>
           <Field label={t.amountLabel}>
-            <Input inputMode="decimal" value={amountText} onChange={(e) => setAmountText(e.target.value)} placeholder="500" />
+            <Input
+              inputMode="decimal"
+              pattern="[0-9]*[.]?[0-9]*"
+              autoComplete="off"
+              value={amountText}
+              onChange={(e) => setAmountText(sanitizeMoneyInput(e.target.value))}
+              placeholder="500"
+              aria-label={t.amountLabel}
+            />
           </Field>
           <Button onClick={submit} disabled={!jar || amount <= 0 || busy} className="h-11 w-full text-base">
             {t.addTopUp}
@@ -288,7 +320,14 @@ export function PaydaySheet(props: SheetProps) {
   return (
     <SheetShell {...props} title={t.paydayTitle} hint={t.paydayHint}>
       <Field label={t.paydayAmount}>
-        <Input inputMode="decimal" value={amountText} onChange={(e) => setAmountText(e.target.value)} />
+        <Input
+          inputMode="decimal"
+          pattern="[0-9]*[.]?[0-9]*"
+          autoComplete="off"
+          value={amountText}
+          onChange={(e) => setAmountText(sanitizeMoneyInput(e.target.value))}
+          aria-label={t.paydayAmount}
+        />
       </Field>
       <div className="rounded-2xl bg-muted/50 p-4 text-sm">
         {canSplit ? (
@@ -344,7 +383,15 @@ export function GoalSheet(props: SheetProps) {
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t.goalNamePlaceholder} maxLength={40} />
       </Field>
       <Field label={t.goalTarget}>
-        <Input inputMode="decimal" value={targetText} onChange={(e) => setTargetText(e.target.value)} placeholder="15000" />
+        <Input
+          inputMode="decimal"
+          pattern="[0-9]*[.]?[0-9]*"
+          autoComplete="off"
+          value={targetText}
+          onChange={(e) => setTargetText(sanitizeMoneyInput(e.target.value))}
+          placeholder="15000"
+          aria-label={t.goalTarget}
+        />
       </Field>
       <Field label={t.goalTargetDate}>
         <Input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} />
@@ -381,7 +428,11 @@ export function GoalSheet(props: SheetProps) {
 // ── Settings (budget + round-up) ─────────────────────────────────────────────
 
 export function SettingsSheet(
-  props: SheetProps & { onClear?: () => void; onSaved?: () => void; offline?: boolean },
+  props: SheetProps & {
+    onClear?: () => void
+    onSaved?: () => void
+    offline?: boolean
+  },
 ) {
   const { t } = usePrefs()
   const { api } = props
@@ -396,7 +447,53 @@ export function SettingsSheet(
   const [roundTo, setRoundTo] = useState<number>(s?.round_to ?? 10)
   const [roundupOn, setRoundupOn] = useState<boolean>(s?.roundup_on ?? true)
   const [busy, setBusy] = useState(false)
+  const [exportBusy, setExportBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  async function handleExport() {
+    setExportBusy(true)
+    setError(null)
+    try {
+      // Prefer live UI data so the file matches what is on screen
+      const liveGoals = api.goals ?? []
+      const liveTxs = txs ?? []
+      const liveSettings = api.settings ? [api.settings] : []
+      const hasLive = liveGoals.length > 0 || liveTxs.length > 0 || liveSettings.length > 0
+
+      if (hasLive) {
+        triggerJsonDownload({
+          exported_at: new Date().toISOString(),
+          goals: liveGoals,
+          transactions: liveTxs,
+          settings: liveSettings,
+        })
+        return
+      }
+
+      if (props.offline) {
+        downloadOfflineBackup()
+        return
+      }
+
+      // Empty UI — still try server / offline stores
+      const res = await fetch("/api/export", {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      })
+      if (!res.ok) throw new Error(`Export failed (${res.status})`)
+      const type = res.headers.get("content-type") ?? ""
+      if (!type.includes("json")) throw new Error("Export did not return JSON")
+      triggerJsonDownload(await res.json())
+    } catch (e) {
+      try {
+        downloadOfflineBackup()
+      } catch {
+        setError(e instanceof Error ? e.message : "Export failed")
+      }
+    } finally {
+      setExportBusy(false)
+    }
+  }
   const num = (k: keyof typeof vals) => Math.max(0, Number(vals[k].replace(/,/g, "")) || 0)
   const mpf = calculateMPF(num("monthly_income"))
 
@@ -436,8 +533,12 @@ export function SettingsSheet(
           <Field key={f.k} label={f.label}>
             <Input
               inputMode="decimal"
+              pattern="[0-9]*[.]?[0-9]*"
+              autoComplete="off"
               value={vals[f.k]}
-              onChange={(e) => setVals((v) => ({ ...v, [f.k]: e.target.value }))}
+              onChange={(e) =>
+                setVals((v) => ({ ...v, [f.k]: sanitizeMoneyInput(e.target.value) }))
+              }
             />
           </Field>
         ))}
@@ -465,14 +566,12 @@ export function SettingsSheet(
         type="button"
         variant="outline"
         className="w-full"
-        onClick={() => {
-          if (props.offline) downloadOfflineBackup()
-          else window.open("/api/export", "_blank", "noopener,noreferrer")
-        }}
+        disabled={exportBusy}
+        onClick={() => void handleExport()}
       >
-        {t.exportBackup}
+        {exportBusy ? "…" : t.exportBackup}
       </Button>
-      {/* ADD THIS NEW BUTTON HERE */}
+      {/* Keep your CSV button */}
       <Button
         type="button"
         variant="outline"
@@ -481,9 +580,11 @@ export function SettingsSheet(
       >
         {t.exportCsv}
       </Button>
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+
+      {/* Keep your groupmate's clear button */}
       {props.onClear && (
         <Button
+          type="button"
           variant="ghost"
           onClick={() => {
             if (window.confirm(t.clearConfirm)) props.onClear?.()
@@ -493,6 +594,9 @@ export function SettingsSheet(
           {t.clearAll}
         </Button>
       )}
+
+      {/* Keep only ONE error message */}
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     </SheetShell>
   )
 }

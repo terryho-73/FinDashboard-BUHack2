@@ -201,7 +201,16 @@ export function QuickLogSheet(props: Props) {
                       <Input
                         inputMode="decimal"
                         value={String(it.amount)}
-                        onChange={(e) => update(i, { amount: Number(e.target.value.replace(/[^\d.]/g, "")) || 0 })}
+                        onChange={(e) => {
+                          let cleaned = e.target.value.replace(/[^\d.]/g, "")
+                          const dot = cleaned.indexOf(".")
+                          if (dot !== -1) {
+                            cleaned =
+                              cleaned.slice(0, dot + 1) +
+                              cleaned.slice(dot + 1).replace(/\./g, "").slice(0, 2)
+                          }
+                          update(i, { amount: Number(cleaned) || 0 })
+                        }}
                         aria-label={t.amountLabel}
                         className="tabular-nums"
                       />
