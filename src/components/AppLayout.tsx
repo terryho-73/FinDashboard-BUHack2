@@ -299,6 +299,7 @@ export function AppLayout() {
         api={api}
         offline={offline}
         onClear={clearAll}
+        txs={txs}
       />
     </div>
   )

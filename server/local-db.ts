@@ -68,10 +68,34 @@ export function localDbPlugin(dbFile: string) {
           return
         }
 
+        const pathname = (req.url ?? "").split("?")[0]
+        // JSON backup — same SQLite instance the UI reads/writes
+        if (pathname === "/api/export" && database) {
+          if (req.method !== "GET") {
+            sendJson(res, { error: "method not allowed" }, 405)
+            return
+          }
+          const exported_at = new Date().toISOString()
+          const body = {
+            exported_at,
+            goals: database.prepare(`SELECT * FROM goals ORDER BY created_at ASC`).all(),
+            transactions: database.prepare(`SELECT * FROM transactions ORDER BY created_at ASC`).all(),
+            settings: database.prepare(`SELECT * FROM settings ORDER BY created_at ASC`).all(),
+          }
+          res.statusCode = 200
+          res.setHeader("Content-Type", "application/json; charset=utf-8")
+          res.setHeader(
+            "Content-Disposition",
+            `attachment; filename="pocketgoals-backup-${exported_at.slice(0, 10)}.json"`,
+          )
+          res.end(JSON.stringify(body))
+          return
+        }
+
         const match = req.url?.match(/^\/api\/(goals|transactions|settings)(?:\/([^/?]+))?$/)
         if (!match || !database) return next()
 
-          void handleRequest(database, req, res, match[1] as TableName, match[2], clients, sockets)
+        void handleRequest(database, req, res, match[1] as TableName, match[2], clients, sockets)
       })
     },
   }

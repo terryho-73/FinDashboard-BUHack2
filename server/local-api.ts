@@ -53,7 +53,12 @@ export async function handleLocalApi(
       sendJson(res, 405, { error: "method not allowed" })
       return true
     }
-    sendJson(res, 200, { exported_at: new Date().toISOString(), ...exportAll() })
+    const body = { exported_at: new Date().toISOString(), ...exportAll() }
+    const stamp = body.exported_at.slice(0, 10)
+    res.statusCode = 200
+    res.setHeader("Content-Type", "application/json; charset=utf-8")
+    res.setHeader("Content-Disposition", `attachment; filename="pocketgoals-backup-${stamp}.json"`)
+    res.end(JSON.stringify(body))
     return true
   }
 

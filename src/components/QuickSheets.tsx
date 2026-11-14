@@ -20,7 +20,7 @@ import {
   type Tx,
 } from "@/lib/finance"
 import { cn } from "@/lib/utils"
-import { downloadOfflineBackup } from "@/lib/offline-store"
+import { downloadOfflineBackup, triggerJsonDownload } from "@/lib/offline-store"
 
 export type Api = {
   goals: Goal[]
@@ -379,7 +379,13 @@ export function GoalSheet(props: SheetProps) {
 // ── Settings (budget + round-up) ─────────────────────────────────────────────
 
 export function SettingsSheet(
-  props: SheetProps & { onClear?: () => void; onSaved?: () => void; offline?: boolean },
+  props: SheetProps & {
+    onClear?: () => void
+    onSaved?: () => void
+    offline?: boolean
+    /** Live transactions from the app — used so export matches what you see on screen. */
+    txs?: Tx[]
+  },
 ) {
   const { t } = usePrefs()
   const { api } = props
@@ -393,7 +399,53 @@ export function SettingsSheet(
   const [roundTo, setRoundTo] = useState<number>(s?.round_to ?? 10)
   const [roundupOn, setRoundupOn] = useState<boolean>(s?.roundup_on ?? true)
   const [busy, setBusy] = useState(false)
+  const [exportBusy, setExportBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  async function handleExport() {
+    setExportBusy(true)
+    setError(null)
+    try {
+      // Prefer live UI data so the file matches what is on screen
+      const liveGoals = api.goals ?? []
+      const liveTxs = props.txs ?? []
+      const liveSettings = api.settings ? [api.settings] : []
+      const hasLive = liveGoals.length > 0 || liveTxs.length > 0 || liveSettings.length > 0
+
+      if (hasLive) {
+        triggerJsonDownload({
+          exported_at: new Date().toISOString(),
+          goals: liveGoals,
+          transactions: liveTxs,
+          settings: liveSettings,
+        })
+        return
+      }
+
+      if (props.offline) {
+        downloadOfflineBackup()
+        return
+      }
+
+      // Empty UI — still try server / offline stores
+      const res = await fetch("/api/export", {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      })
+      if (!res.ok) throw new Error(`Export failed (${res.status})`)
+      const type = res.headers.get("content-type") ?? ""
+      if (!type.includes("json")) throw new Error("Export did not return JSON")
+      triggerJsonDownload(await res.json())
+    } catch (e) {
+      try {
+        downloadOfflineBackup()
+      } catch {
+        setError(e instanceof Error ? e.message : "Export failed")
+      }
+    } finally {
+      setExportBusy(false)
+    }
+  }
   const num = (k: keyof typeof vals) => Math.max(0, Number(vals[k].replace(/,/g, "")) || 0)
   const mpf = calculateMPF(num("monthly_income"))
 
@@ -462,25 +514,14 @@ export function SettingsSheet(
         type="button"
         variant="outline"
         className="w-full"
-        onClick={() => {
-          if (props.offline) downloadOfflineBackup()
-          else window.open("/api/export", "_blank", "noopener,noreferrer")
-        }}
+        disabled={exportBusy}
+        onClick={() => void handleExport()}
       >
-        {t.exportBackup}
+        {exportBusy ? "…" : t.exportBackup}
       </Button>
-      <Button
-        variant="ghost"
-        onClick={() => {
-          if (window.confirm(t.clearConfirm)) props.onClear()
-        }}
-        className="w-full text-destructive"
-      >
-        {t.clearAll}
-      </Button>
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {props.onClear && (
         <Button
+          type="button"
           variant="ghost"
           onClick={() => {
             if (window.confirm(t.clearConfirm)) props.onClear?.()
@@ -490,6 +531,7 @@ export function SettingsSheet(
           {t.clearAll}
         </Button>
       )}
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     </SheetShell>
   )
 }
