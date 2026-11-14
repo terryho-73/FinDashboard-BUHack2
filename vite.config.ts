@@ -20,15 +20,10 @@ export default defineConfig({
     tanstackRouter({ target: 'react', autoCodeSplitting: true }),
     react(),
     tailwindcss(),
+    // Node fallback (`dev:sqlite`): serve /api from local SQLite.
     ...(useLocalDb ? [localDbPlugin(process.env.VIBES_DB ?? '.vibes/data.db')] : []),
-    ...(isNodeRuntime
-      ? []
-      : [
-          vibes({
-            db: process.env.VIBES_DB ?? '.vibes/data.db',
-            auth: useLocalDb ? 'local' : 'vibes',
-          }),
-        ]),
+    // Bun (`dev`): the vibes plugin with local auth.
+    ...(isNodeRuntime ? [] : [vibes({ auth: 'local' })]),
   ],
   resolve: {
     // pi (and humans copying from shadcn docs) reaches for '@/components/...'

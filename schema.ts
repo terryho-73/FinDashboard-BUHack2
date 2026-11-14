@@ -13,7 +13,7 @@ export default defineSchema({
         emoji: fields.string(),
         color: fields.enum(["rose", "amber", "sky", "emerald", "violet"]),
       },
-    }),
+    }).scoped("global"),
     transactions: collection({
       fields: {
         title: fields.string(),
@@ -45,7 +45,7 @@ export default defineSchema({
         recurring: fields.boolean(),
         source: fields.enum(["manual", "csv", "roundup", "payday", "topup", "demo"]),
       },
-    }),
+    }).scoped("global"),
     settings: collection({
       fields: {
         monthly_income: fields.number(),
@@ -56,6 +56,6 @@ export default defineSchema({
         round_to: fields.number(),
         roundup_on: fields.boolean(),
       },
-    }),
+    }).scoped("global"),
   },
 })

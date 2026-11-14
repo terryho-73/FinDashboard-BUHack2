@@ -108,10 +108,9 @@ Override the path with `VIBES_DB`, for example:
 VIBES_DB=.vibes/test.db bun run dev:sqlite
 ```
 
-`npm run dev` also runs under Node, where the Bun-only vibes plugin is
-skipped, so it uses the same local SQLite backend by default (otherwise
-`/api/*` would not exist and the app could not load). Set
-`VIBES_LOCAL_DB=false` to opt out.
+`bun run dev` runs Vite under Bun with the vibes plugin (local auth). Without
+Bun, use `npm run dev:sqlite`: the vibes plugin is Bun-only, so under Node the
+local SQLite plugin serves `/api/*` instead.
 
 ### Demo walkthrough
 
