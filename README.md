@@ -31,13 +31,14 @@ It tracks manually entered or imported transactions, organizes savings into **vi
 
 | Layer | Choice |
 |-------|--------|
-| Frontend | Vue 3, **TypeScript**, Vite, Bootstrap 5.3, Vue Router, Pinia, Vue I18n, Chart.js, Papa Parse |
-| Backend | Node.js, **TypeScript**, Express, PostgreSQL (`pg` + SQL migrations), Zod |
-| Shared | Typed pure modules (`money`, `safeToSpend`, `roundUp`) in `shared/` |
-| Tests | Vitest (unit), Playwright (e2e) |
+| Frontend | React, **TypeScript**, Vite Plus, TanStack Router, Tailwind CSS v4, shadcn/ui, Lucide React |
+| Backend | Vite Plus with `@omg-dev/vite-plugin` and `@omg-dev/server`, local SQLite database |
+| Data access | `@omg-dev/sdk` collections, Drizzle ORM, Better Drizzle |
+| Shared | Typed pure finance and preference modules in `src/lib/` |
+| Validation | ESLint and Vite Plus production build |
 | Defaults | HKD, `Asia/Hong_Kong`, English + Traditional Chinese |
 
-Use **Bootstrap CSS with Vue-controlled interactions** (avoid loading Bootstrap’s JS bundle alongside Vue-driven modals/dropdowns).
+Use the Vibes development plugin for local API routes, database access, and realtime collection updates. The current prototype runs in credential-free Demo mode with fictional local data.
 
 ## Planned repository layout
 
@@ -55,25 +56,28 @@ Full tree and module conventions: see [`PLAN.md` §4](PLAN.md).
 
 ## MVP features
 
-- Onboarding, dashboard, saving buckets, expense logging
-- CSV import (preview, validate, confirm)
-- Accounts, categories, budget planner
-- Estimated **safe-to-spend** (with assumptions shown)
-- Privacy toggle (hide amounts), bilingual UI, light/dark theme
-- Export and account deletion
+- Mobile-first dashboard with savings summary and **safe-to-spend** estimate
+- Virtual saving jars with targets, progress, top-ups, and deletion
+- Expense logging with categories, payment channels, recurring charges, and round-up savings
+- Payday income logging with automatic savings split across jars
+- Cash-flow forecast with planned-purchase impact preview
+- Spending charts, recent activity, subscription detection, and cut-back insights
+- Budget settings for income, rent, utilities, MPF, savings percentage, and round-up amount
+- Privacy toggle for hiding balances, bilingual English/Traditional Chinese UI, and light/dark theme
+- Demo seed data with local SQLite persistence and realtime collection updates
 
 ## Architecture (summary)
 
 ```text
-Vue (Bootstrap / Pinia / Router) ──HTTPS/JSON──► Express API ──► PostgreSQL
-                                                      └──► HKMA reference, optional AI (server-side)
+React (Tailwind / TanStack Router) ──SDK collections──► Vite Plus + Vibes API ──► SQLite
+                                                        └──► Local realtime updates
 ```
 
 Rules:
 
-1. No database logic in Vue components.
-2. Financial formulas in **shared pure functions**; backend authoritative for persisted calculations.
-3. **Demo mode** (labeled fictional data) vs **account mode** (auth + PostgreSQL)—never silently fall back to demo on API failure.
+1. No database logic in React components; use SDK collections and the Vibes API.
+2. Financial formulas live in **typed pure modules** under `src/lib/`; keep display logic separate from data access.
+3. The current prototype runs in **Demo mode** with local SQLite persistence and no credentials. Account mode is not implemented yet.
 4. AI (when added) uses an allowlisted tool set only—no unrestricted SQL or transfers.
 
 ## Money and ledger rules (critical)
