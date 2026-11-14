@@ -6,8 +6,9 @@ import {
   useState,
   type ReactNode,
 } from "react"
-import { useCollection } from "@omg-dev/sdk"
-import { todayISO, type Goal, type Settings, type Tx } from "@/lib/finance"
+import { useAppCollection, useDataBackend } from "@/lib/data-backend"
+import { clearOfflineStore } from "@/lib/offline-store"
+import { type Goal, type Settings, type Tx } from "@/lib/finance"
 import type { Api } from "@/components/QuickSheets"
 
 function mergeRows<T extends { id: string }>(
@@ -34,17 +35,20 @@ export type SavingsData = {
   api: Api
   refreshAll: () => void
   clearAll: () => Promise<void>
-  goalsQ: ReturnType<typeof useCollection<Goal>>
-  txQ: ReturnType<typeof useCollection<Tx>>
-  settingsQ: ReturnType<typeof useCollection<Settings>>
+  offline: boolean
+  goalsQ: ReturnType<typeof useAppCollection<Goal>>
+  txQ: ReturnType<typeof useAppCollection<Tx>>
+  settingsQ: ReturnType<typeof useAppCollection<Settings>>
 }
 
 const Ctx = createContext<SavingsData | null>(null)
 
 export function SavingsDataProvider({ children }: { children: ReactNode }) {
-  const goalsQ = useCollection<Goal>({ collection: "goals", api: "/api/goals" })
-  const txQ = useCollection<Tx>({ collection: "transactions", api: "/api/transactions" })
-  const settingsQ = useCollection<Settings>({ collection: "settings", api: "/api/settings" })
+  const backend = useDataBackend()
+  const offline = backend === "offline"
+  const goalsQ = useAppCollection<Goal>({ collection: "goals", api: "/api/goals" })
+  const txQ = useAppCollection<Tx>({ collection: "transactions", api: "/api/transactions" })
+  const settingsQ = useAppCollection<Settings>({ collection: "settings", api: "/api/settings" })
 
   const [localTx, setLocalTx] = useState<Record<string, Tx>>({})
   const [removedTx, setRemovedTx] = useState<Record<string, true>>({})
@@ -67,7 +71,7 @@ export function SavingsDataProvider({ children }: { children: ReactNode }) {
   const empty = !loading && goals.length === 0 && txs.length === 0
   const hasDemoData = useMemo(() => txs.some((t) => t.source === "demo"), [txs])
 
-  const errors = [goalsQ.error, txQ.error, settingsQ.error].filter(Boolean) as string[]
+  const errors = offline ? [] : ([goalsQ.error, txQ.error, settingsQ.error].filter(Boolean) as string[])
   const error = errors[0] ?? null
   const status = goalsQ.status ?? txQ.status ?? settingsQ.status ?? "loading"
 
@@ -119,7 +123,8 @@ export function SavingsDataProvider({ children }: { children: ReactNode }) {
       setSettingsGone(true)
       setLocalSettings(null)
     }
-  }, [api, goals, settings, settingsQ, txs])
+    if (offline) clearOfflineStore()
+  }, [api, goals, offline, settings, settingsQ, txs])
 
   const value = useMemo(
     (): SavingsData => ({
@@ -137,6 +142,7 @@ export function SavingsDataProvider({ children }: { children: ReactNode }) {
       txQ,
       settingsQ,
       clearAll,
+      offline,
     }),
     [
       goals,
@@ -153,6 +159,7 @@ export function SavingsDataProvider({ children }: { children: ReactNode }) {
       txQ,
       settingsQ,
       clearAll,
+      offline,
     ],
   )
 

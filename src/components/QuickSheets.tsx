@@ -20,6 +20,7 @@ import {
   type Tx,
 } from "@/lib/finance"
 import { cn } from "@/lib/utils"
+import { downloadOfflineBackup } from "@/lib/offline-store"
 
 export type Api = {
   goals: Goal[]
@@ -377,7 +378,9 @@ export function GoalSheet(props: SheetProps) {
 
 // ── Settings (budget + round-up) ─────────────────────────────────────────────
 
-export function SettingsSheet(props: SheetProps & { onClear?: () => void; onSaved?: () => void }) {
+export function SettingsSheet(
+  props: SheetProps & { onClear?: () => void; onSaved?: () => void; offline?: boolean },
+) {
   const { t } = usePrefs()
   const { api } = props
   const s = api.settings
@@ -460,7 +463,8 @@ export function SettingsSheet(props: SheetProps & { onClear?: () => void; onSave
         variant="outline"
         className="w-full"
         onClick={() => {
-          window.open("/api/export", "_blank", "noopener,noreferrer")
+          if (props.offline) downloadOfflineBackup()
+          else window.open("/api/export", "_blank", "noopener,noreferrer")
         }}
       >
         {t.exportBackup}

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react"
-import { useCollection } from "@omg-dev/sdk"
 import { Flame, PiggyBank, Plus, Repeat, Receipt, Trash2, Wallet, AlertTriangle, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -7,6 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { usePrefs } from "@/lib/prefs-context"
 import { useSheetActions } from "@/components/AppLayout"
+import { useSavingsData } from "@/lib/savings-data"
 import { format } from "@/lib/i18n"
 import {
   categoryTotals,
@@ -32,7 +32,6 @@ import {
 import { cn } from "@/lib/utils"
 import { useNavigate } from "@tanstack/react-router"
 import { ProgressRing, NetLine, CategoryBars, FlowBars } from "@/components/Charts"
-import { type Api } from "@/components/QuickSheets"
 import { WeeklyChallenge } from "@/components/WeeklyChallenge"
 
 const SAFETY_BUFFER = 1000
@@ -41,58 +40,12 @@ export default function App() {
   const { t, lang, hidden } = usePrefs()
   const { openTopUp, openNewGoal, openPayday } = useSheetActions()
   const navigate = useNavigate()
-  const goalsQ = useCollection<Goal>({ collection: "goals", api: "/api/goals" })
-  const txQ = useCollection<Tx>({ collection: "transactions", api: "/api/transactions" })
-  const settingsQ = useCollection<Settings>({ collection: "settings", api: "/api/settings" })
-
-  // Writes are echoed into local state right away, so the screen updates even
-  // before the live collection pushes the change back.
-  const [localTx, setLocalTx] = useState<Record<string, Tx>>({})
-  const [removedTx, setRemovedTx] = useState<Record<string, true>>({})
-  const [localGoals, setLocalGoals] = useState<Record<string, Goal>>({})
-  const [removedGoals, setRemovedGoals] = useState<Record<string, true>>({})
-  const [localSettings, setLocalSettings] = useState<Settings | null>(null)
-  const [settingsGone, setSettingsGone] = useState(false)
-
-  const goals = useMemo(() => mergeRows(goalsQ.data, localGoals, removedGoals), [goalsQ.data, localGoals, removedGoals])
-  const txs = useMemo(() => mergeRows(txQ.data, localTx, removedTx), [txQ.data, localTx, removedTx])
-  const settings = settingsGone ? null : (localSettings ?? settingsQ.data[0] ?? null)
+  const { goals, txs, settings, api, loading: dataLoading } = useSavingsData()
   const today = todayISO()
 
   const [skip, setSkip] = useState(1)
   const [habitIdx, setHabitIdx] = useState(0)
   const [cutGoalId, setCutGoalId] = useState<string | null>(null)
-
-  const api: Api = {
-    goals,
-    settings,
-    addTx: async (row) => {
-      const r = (await txQ.create(row as never)) as Tx
-      if (r?.id) setLocalTx((m) => ({ ...m, [r.id]: r }))
-      return r
-    },
-    addGoal: async (row) => {
-      const r = (await goalsQ.create(row as never)) as Goal
-      if (r?.id) setLocalGoals((m) => ({ ...m, [r.id]: r }))
-      return r
-    },
-    removeGoal: async (id) => {
-      await goalsQ.remove(id)
-      setRemovedGoals((m) => ({ ...m, [id]: true }))
-    },
-    removeTx: async (id) => {
-      await txQ.remove(id)
-      setRemovedTx((m) => ({ ...m, [id]: true }))
-    },
-    saveSettings: async (row) => {
-      const r = (settings
-        ? await settingsQ.update(settings.id, row as never)
-        : await settingsQ.create(row as never)) as Settings
-      setLocalSettings(r)
-      setSettingsGone(false)
-      return r
-    },
-  }
 
   const s = useMemo(() => summary(txs, settings, today), [txs, settings, today])
   const streak = useMemo(() => savingsStreak(txs, today), [txs, today])
@@ -113,7 +66,7 @@ export default function App() {
   )
 
   const totalSaved = s.totalSaved
-  const loading = goalsQ.loading || txQ.loading || settingsQ.loading
+  const loading = dataLoading
   // Brand-new user = nothing saved at all. Someone who only set a budget in
   // onboarding has settings and must stay on the dashboard, not loop back.
   const empty = !loading && goals.length === 0 && txs.length === 0 && !settings
@@ -601,18 +554,6 @@ export default function App() {
         <p className="text-center text-xs text-muted-foreground">{t.footnote}</p>
     </div>
   )
-}
-
-function mergeRows<T extends { id: string }>(
-  base: T[],
-  local: Record<string, T>,
-  removed: Record<string, true>,
-): T[] {
-  const m = new Map<string, T>()
-  for (const r of base) m.set(r.id, r)
-  for (const r of Object.values(local)) m.set(r.id, r)
-  for (const id of Object.keys(removed)) m.delete(id)
-  return [...m.values()]
 }
 
 function addOne(iso: string, n: number) {

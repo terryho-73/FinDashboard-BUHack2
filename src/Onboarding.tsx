@@ -1,36 +1,20 @@
 import { useState } from "react"
 import { useNavigate } from "@tanstack/react-router"
-import { useCollection } from "@omg-dev/sdk"
 import { ArrowRight, PiggyBank, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { SettingsSheet, type Api } from "@/components/QuickSheets"
+import { SettingsSheet } from "@/components/QuickSheets"
 import { usePrefs } from "@/lib/prefs-context"
+import { useSavingsData } from "@/lib/savings-data"
 import { seedDemo } from "@/lib/seed"
-import type { Goal, Settings, Tx } from "@/lib/finance"
 
 export default function Onboarding() {
   const { t } = usePrefs()
   const navigate = useNavigate()
-  const goalsQ = useCollection<Goal>({ collection: "goals", api: "/api/goals" })
-  const txQ = useCollection<Tx>({ collection: "transactions", api: "/api/transactions" })
-  const settingsQ = useCollection<Settings>({ collection: "settings", api: "/api/settings" })
+  const { api, settings, goals, txs, loading, offline } = useSavingsData()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [demoBusy, setDemoBusy] = useState(false)
   const [demoError, setDemoError] = useState<string | null>(null)
-
-  const settings = settingsQ.data[0] ?? null
-  const api: Api = {
-    goals: goalsQ.data,
-    settings,
-    addTx: async (row) => txQ.create(row as never),
-    addGoal: async (row) => goalsQ.create(row as never),
-    removeGoal: async (id) => goalsQ.remove(id),
-    removeTx: async (id) => txQ.remove(id),
-    saveSettings: async (row) => settings
-      ? settingsQ.update(settings.id, row as never)
-      : settingsQ.create(row as never),
-  }
 
   const goHome = () => void navigate({ to: "/", replace: true })
 
@@ -40,7 +24,7 @@ export default function Onboarding() {
     setDemoError(null)
     try {
       // Only seed an empty account, so a double tap or a revisit can't duplicate data.
-      if (goalsQ.data.length === 0 && txQ.data.length === 0) {
+      if (goals.length === 0 && txs.length === 0) {
         await seedDemo(api as unknown as Parameters<typeof seedDemo>[0])
       }
       goHome()
@@ -93,7 +77,7 @@ export default function Onboarding() {
             <Button
               variant="secondary"
               onClick={() => void loadDemo()}
-              disabled={demoBusy || goalsQ.loading || txQ.loading || settingsQ.loading}
+              disabled={demoBusy || loading}
               className="h-11"
             >
               <Sparkles className="mr-2 size-4" aria-hidden="true" />
@@ -109,6 +93,7 @@ export default function Onboarding() {
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
         api={api}
+        offline={offline}
         onSaved={goHome}
       />
     </div>

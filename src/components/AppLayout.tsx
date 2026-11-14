@@ -60,7 +60,7 @@ export function useSheetActions() {
 export function AppLayout() {
   const navigate = useNavigate()
   const { t, lang, setLang, dark, setDark, hidden, setHidden } = usePrefs()
-  const { loading, empty, error, hasDemoData, api, refreshAll, clearAll, goals, txs, settings } =
+  const { loading, empty, error, offline, hasDemoData, api, refreshAll, clearAll, goals, txs, settings } =
     useSavingsData()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const today = todayISO()
@@ -173,7 +173,13 @@ export function AppLayout() {
           </div>
         )}
 
-        {error && (
+        {offline && (
+          <div className="border-t border-accent/30 bg-accent/15 px-4 py-2.5">
+            <p className="mx-auto max-w-md text-center text-xs text-foreground">{t.offlineBanner}</p>
+          </div>
+        )}
+
+        {error && !offline && (
           <div className="border-t border-destructive/30 bg-destructive/10 px-4 py-3" role="alert">
             <div className="mx-auto flex max-w-md items-center gap-3">
               <AlertCircle className="size-5 shrink-0 text-destructive" aria-hidden />
@@ -291,6 +297,7 @@ export function AppLayout() {
         open={sheet === "settings"}
         onOpenChange={(v) => setSheet(v ? "settings" : null)}
         api={api}
+        offline={offline}
         onClear={clearAll}
       />
     </div>
