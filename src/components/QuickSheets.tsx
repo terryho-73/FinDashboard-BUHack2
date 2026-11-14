@@ -87,6 +87,21 @@ export function ChipRow({ children }: { children: ReactNode }) {
   return <div className="flex flex-wrap gap-2">{children}</div>
 }
 
+/** Allow only digits and a single decimal point (money fields). */
+function sanitizeMoneyInput(raw: string): string {
+  let cleaned = raw.replace(/[^\d.]/g, "")
+  const dot = cleaned.indexOf(".")
+  if (dot !== -1) {
+    cleaned = cleaned.slice(0, dot + 1) + cleaned.slice(dot + 1).replace(/\./g, "")
+    const [whole, frac = ""] = cleaned.split(".")
+    cleaned = frac.length > 2 ? `${whole}.${frac.slice(0, 2)}` : cleaned
+  }
+  if (cleaned.length > 1 && cleaned.startsWith("0") && cleaned[1] !== ".") {
+    cleaned = cleaned.replace(/^0+/, "") || "0"
+  }
+  return cleaned
+}
+
 function parseAmount(v: string) {
   const n = Number(v.replace(/,/g, ""))
   return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 0
@@ -143,7 +158,15 @@ export function ExpenseSheet(props: SheetProps) {
       </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label={t.amountLabel}>
-          <Input inputMode="decimal" value={amountText} onChange={(e) => setAmountText(e.target.value)} placeholder="38" />
+          <Input
+            inputMode="decimal"
+            pattern="[0-9]*[.]?[0-9]*"
+            autoComplete="off"
+            value={amountText}
+            onChange={(e) => setAmountText(sanitizeMoneyInput(e.target.value))}
+            placeholder="38"
+            aria-label={t.amountLabel}
+          />
         </Field>
         <Field label={t.dateLabel}>
           <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -233,7 +256,15 @@ export function TopUpSheet(props: SheetProps & { initialJarId?: string }) {
             </ChipRow>
           </Field>
           <Field label={t.amountLabel}>
-            <Input inputMode="decimal" value={amountText} onChange={(e) => setAmountText(e.target.value)} placeholder="500" />
+            <Input
+              inputMode="decimal"
+              pattern="[0-9]*[.]?[0-9]*"
+              autoComplete="off"
+              value={amountText}
+              onChange={(e) => setAmountText(sanitizeMoneyInput(e.target.value))}
+              placeholder="500"
+              aria-label={t.amountLabel}
+            />
           </Field>
           <Button onClick={submit} disabled={!jar || amount <= 0 || busy} className="h-11 w-full text-base">
             {t.addTopUp}
@@ -286,7 +317,14 @@ export function PaydaySheet(props: SheetProps) {
   return (
     <SheetShell {...props} title={t.paydayTitle} hint={t.paydayHint}>
       <Field label={t.paydayAmount}>
-        <Input inputMode="decimal" value={amountText} onChange={(e) => setAmountText(e.target.value)} />
+        <Input
+          inputMode="decimal"
+          pattern="[0-9]*[.]?[0-9]*"
+          autoComplete="off"
+          value={amountText}
+          onChange={(e) => setAmountText(sanitizeMoneyInput(e.target.value))}
+          aria-label={t.paydayAmount}
+        />
       </Field>
       <div className="rounded-2xl bg-muted/50 p-4 text-sm">
         {canSplit ? (
@@ -342,7 +380,15 @@ export function GoalSheet(props: SheetProps) {
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t.goalNamePlaceholder} maxLength={40} />
       </Field>
       <Field label={t.goalTarget}>
-        <Input inputMode="decimal" value={targetText} onChange={(e) => setTargetText(e.target.value)} placeholder="15000" />
+        <Input
+          inputMode="decimal"
+          pattern="[0-9]*[.]?[0-9]*"
+          autoComplete="off"
+          value={targetText}
+          onChange={(e) => setTargetText(sanitizeMoneyInput(e.target.value))}
+          placeholder="15000"
+          aria-label={t.goalTarget}
+        />
       </Field>
       <Field label={t.goalTargetDate}>
         <Input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} />
@@ -485,8 +531,12 @@ export function SettingsSheet(
           <Field key={f.k} label={f.label}>
             <Input
               inputMode="decimal"
+              pattern="[0-9]*[.]?[0-9]*"
+              autoComplete="off"
               value={vals[f.k]}
-              onChange={(e) => setVals((v) => ({ ...v, [f.k]: e.target.value }))}
+              onChange={(e) =>
+                setVals((v) => ({ ...v, [f.k]: sanitizeMoneyInput(e.target.value) }))
+              }
             />
           </Field>
         ))}

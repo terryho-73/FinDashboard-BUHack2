@@ -244,7 +244,24 @@ export default function App() {
             <p className="mb-2 text-sm font-medium">{t.forecastPurchase}</p>
             <div className="grid grid-cols-[1fr_8rem] gap-2">
               <Input placeholder={t.forecastPurchasePlaceholder} aria-label={t.forecastPurchasePlaceholder} />
-              <Input inputMode="decimal" value={purchaseAmount} onChange={(e) => setPurchaseAmount(e.target.value)} placeholder="680" aria-label={t.forecastImpact} />
+              <Input
+                inputMode="decimal"
+                pattern="[0-9]*[.]?[0-9]*"
+                autoComplete="off"
+                value={purchaseAmount}
+                onChange={(e) => {
+                  let cleaned = e.target.value.replace(/[^\d.]/g, "")
+                  const dot = cleaned.indexOf(".")
+                  if (dot !== -1) {
+                    cleaned =
+                      cleaned.slice(0, dot + 1) +
+                      cleaned.slice(dot + 1).replace(/\./g, "").slice(0, 2)
+                  }
+                  setPurchaseAmount(cleaned)
+                }}
+                placeholder="680"
+                aria-label={t.forecastImpact}
+              />
             </div>
             {purchaseForecast && (
               <div className={cn("mt-3 rounded-2xl p-3 text-sm", purchaseForecast.firstDangerDate ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary")}>
