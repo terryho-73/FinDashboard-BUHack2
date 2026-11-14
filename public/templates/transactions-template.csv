@@ -1,0 +1,5 @@
+date,title,amount,kind,category,channel,goal_id,recurring
+2026-11-01,Lunch at cha chaan teng,58,expense,food,octopus,,false
+2026-11-02,Monthly salary,20000,income,salary,bank,,false
+2026-11-03,Top up Travel jar,500,saving,travel,fps,GOAL_ID_HERE,false
+2026-11-04,Netflix,78,expense,subscriptions,credit,,true

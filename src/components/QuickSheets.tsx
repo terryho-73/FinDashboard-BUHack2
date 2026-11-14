@@ -21,6 +21,8 @@ import {
 } from "@/lib/finance"
 import { cn } from "@/lib/utils"
 import { downloadOfflineBackup } from "@/lib/offline-store"
+import { useSavingsData } from "@/lib/savings-data"
+import { exportTransactionsToCsv } from "@/lib/csv-export"
 
 export type Api = {
   goals: Goal[]
@@ -383,6 +385,7 @@ export function SettingsSheet(
 ) {
   const { t } = usePrefs()
   const { api } = props
+  const { txs } = useSavingsData()
   const s = api.settings
   const [vals, setVals] = useState(() => ({
     monthly_income: String(s?.monthly_income ?? ""),
@@ -469,14 +472,14 @@ export function SettingsSheet(
       >
         {t.exportBackup}
       </Button>
+      {/* ADD THIS NEW BUTTON HERE */}
       <Button
-        variant="ghost"
-        onClick={() => {
-          if (window.confirm(t.clearConfirm)) props.onClear()
-        }}
-        className="w-full text-destructive"
+        type="button"
+        variant="outline"
+        className="w-full"
+        onClick={() => exportTransactionsToCsv(txs)}
       >
-        {t.clearAll}
+        {t.exportCsv}
       </Button>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {props.onClear && (
