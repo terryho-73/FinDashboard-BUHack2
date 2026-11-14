@@ -220,7 +220,7 @@ function monthKeyOffset(y: number, m: number, offset: number) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
 }
 
-function weekStart(iso: string) {
+export function weekStart(iso: string) {
   const [y, m, d] = iso.split("-").map(Number)
   const dt = new Date(y, m - 1, d)
   const dow = (dt.getDay() + 6) % 7 // Monday = 0
@@ -295,4 +295,110 @@ export function cutBack(opts: { perWeek: number; unitCost: number; txs: Tx[]; to
     }
   }
   return { monthlySaving, daysSooner }
+}
+
+// ── Goal cost: how many days a spend delays a jar ───────────────────────────
+// Saving pace per day: the last 90 days of actual savings, or, before there is
+// any history, the monthly target from settings.
+export function savingPacePerDay(txs: Tx[], settings: Settings | null, today: string) {
+  const from = addDays(today, -90)
+  const recent = txs
+    .filter((t) => t.kind === "saving" && t.date >= from && t.date <= today)
+    .reduce((s, t) => s + t.amount, 0)
+  if (recent > 0) return recent / 90
+  const target = ((settings?.monthly_income ?? 0) * (settings?.save_pct ?? 0)) / 100
+  return target / 30
+}
+
+/** Days a jar is pushed back by spending `amount` instead of saving it. */
+export function goalDelayDays(amount: number, pacePerDay: number) {
+  if (pacePerDay <= 0 || amount <= 0) return null
+  return amount / pacePerDay
+}
+
+export function formatDays(days: number, lang: "en" | "zh") {
+  if (days < 0.1) return lang === "zh" ? "少於 0.1 日" : "<0.1 day"
+  const n = days < 10 ? Math.round(days * 10) / 10 : Math.round(days)
+  return lang === "zh" ? `${n} 日` : `${n} ${n === 1 ? "day" : "days"}`
+}
+
+// ── Weekly challenges ───────────────────────────────────────────────────────
+export const CHALLENGES = ["no_shopping", "food_cut", "save3", "habit_half"] as const
+export type ChallengeId = (typeof CHALLENGES)[number]
+
+export type ChallengeStatus = {
+  id: ChallengeId
+  /** 0..1 toward finishing the week successfully */
+  progress: number
+  state: "on_track" | "done" | "failed"
+  /** current value vs limit/target, for display */
+  value: number
+  limit: number
+  /** HK$ kept vs a normal week (spend challenges only) */
+  kept: number
+  habit?: string
+}
+
+function sumWhere(txs: Tx[], from: string, to: string, pred: (t: Tx) => boolean) {
+  return txs.filter((t) => t.date >= from && t.date <= to && pred(t)).reduce((s, t) => s + t.amount, 0)
+}
+
+/** Average per week over the 4 full weeks before `start`. */
+function weeklyBaseline(txs: Tx[], start: string, pred: (t: Tx) => boolean) {
+  return sumWhere(txs, addDays(start, -28), addDays(start, -1), pred) / 4
+}
+
+export function challengeStatus(id: ChallengeId, txs: Tx[], today: string, habits: Habit[]): ChallengeStatus {
+  const start = weekStart(today)
+  const end = addDays(start, 6)
+  const dayIdx = Math.round((Date.parse(today) - Date.parse(start)) / 86_400_000) // 0..6
+  const elapsed = (dayIdx + 1) / 7
+  const weekOver = today >= end
+  const finish = (ok: boolean, progress: number): ChallengeStatus["state"] =>
+    !ok ? "failed" : weekOver ? "done" : progress >= 1 ? "done" : "on_track"
+
+  if (id === "no_shopping") {
+    const isShop = (t: Tx) => t.kind === "expense" && t.category === "shopping"
+    const spent = sumWhere(txs, start, today, isShop)
+    const base = weeklyBaseline(txs, start, isShop)
+    const ok = spent === 0
+    return { id, progress: ok ? elapsed : 1, state: finish(ok, ok ? elapsed : 0), value: spent, limit: 0, kept: Math.max(0, base * elapsed - spent) }
+  }
+  if (id === "food_cut") {
+    const isFood = (t: Tx) => t.kind === "expense" && t.category === "food"
+    const base = weeklyBaseline(txs, start, isFood)
+    // Floor at HK$100 so a thin history doesn't set an impossible limit.
+    const limit = Math.max(100, Math.round(base * 0.8))
+    const spent = sumWhere(txs, start, today, isFood)
+    const ok = spent <= limit
+    return { id, progress: Math.min(1, spent / limit), state: finish(ok, ok ? elapsed : 0), value: spent, limit, kept: Math.max(0, base * elapsed - spent) }
+  }
+  if (id === "save3") {
+    const n = txs.filter((t) => t.kind === "saving" && t.date >= start && t.date <= today).length
+    return { id, progress: Math.min(1, n / 3), state: n >= 3 ? "done" : weekOver ? "failed" : "on_track", value: n, limit: 3, kept: 0 }
+  }
+  // habit_half: buy your top small habit at most half as often as usual
+  const habit = habits[0]
+  if (!habit) return { id, progress: 0, state: "on_track", value: 0, limit: 0, kept: 0 }
+  const key = habit.title.trim().toLowerCase()
+  const match = (t: Tx) => t.kind === "expense" && t.title.trim().toLowerCase() === key
+  const n = txs.filter((t) => t.date >= start && t.date <= today && match(t)).length
+  const limit = Math.max(1, Math.floor((habit.count / 4.3) / 2))
+  const ok = n <= limit
+  const baseCount = habit.count / 4.3
+  return {
+    id, progress: Math.min(1, n / limit), state: finish(ok, ok ? elapsed : 0), value: n, limit,
+    kept: Math.max(0, (baseCount * elapsed - n) * habit.avg), habit: habit.title,
+  }
+}
+
+/** This week's numbers for the shareable recap card. */
+export function weekRecap(txs: Tx[], today: string) {
+  const start = weekStart(today)
+  const isExp = (t: Tx) => t.kind === "expense"
+  const saved = sumWhere(txs, start, today, (t) => t.kind === "saving")
+  const spent = sumWhere(txs, start, today, isExp)
+  const dayIdx = Math.round((Date.parse(today) - Date.parse(start)) / 86_400_000)
+  const usual = weeklyBaseline(txs, start, isExp) * ((dayIdx + 1) / 7)
+  return { start, saved, spent, vsUsual: usual - spent }
 }

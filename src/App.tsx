@@ -15,6 +15,7 @@ import {
   Receipt,
   AlertTriangle,
   CheckCircle2,
+  Mic,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -36,6 +37,9 @@ import {
   addDays,
   cashFlowForecast,
   JAR_HEX,
+  savingPacePerDay,
+  goalDelayDays,
+  formatDays,
   type Goal,
   type Settings,
   type Tx,
@@ -51,10 +55,12 @@ import {
   TopUpSheet,
   type Api,
 } from "@/components/QuickSheets"
+import { QuickLogSheet } from "@/components/QuickLog"
+import { WeeklyChallenge } from "@/components/WeeklyChallenge"
 
 const SAFETY_BUFFER = 1000
 
-type SheetKey = "expense" | "topup" | "payday" | "goal" | "settings" | null
+type SheetKey = "quicklog" | "expense" | "topup" | "payday" | "goal" | "settings" | null
 
 export default function App() {
   const { t, lang, setLang, dark, setDark, hidden, setHidden } = usePrefs()
@@ -144,6 +150,13 @@ export default function App() {
   const habit = habits[Math.min(habitIdx, habits.length - 1)]
   const openJars = goals.filter((g) => goalSaved(g.id, txs) < g.target)
   const cutGoal = goals.find((g) => g.id === cutGoalId) ?? openJars[0] ?? goals[0] ?? null
+  // Goal cost (#2): every spend is shown as days of delay for the first open jar.
+  const focusGoal = openJars[0] ?? null
+  const pace = useMemo(() => savingPacePerDay(txs, settings, today), [txs, settings, today])
+  const delayLabel = (amount: number) => {
+    const d = goalDelayDays(amount, pace)
+    return focusGoal && d !== null ? formatDays(d, lang) : null
+  }
   const cut = habit
     ? cutBack({ perWeek: skip, unitCost: habit.avg, txs, today, goal: cutGoal })
     : null
@@ -374,6 +387,11 @@ export default function App() {
                 {purchaseForecast.firstDangerDate && (
                   <p className="mt-1 text-xs">{format(t.forecastRecommendation, { amount: money(purchaseCutPerDay, hidden) })}</p>
                 )}
+                {focusGoal && delayLabel(purchase) && (
+                  <p className="mt-1 text-xs text-foreground">
+                    {focusGoal.emoji} {format(t.goalCostPush, { goal: focusGoal.name, days: delayLabel(purchase)! })}
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -446,6 +464,9 @@ export default function App() {
           )}
         </section>
 
+        {/* Weekly challenge + shareable recap (#3) */}
+        <WeeklyChallenge txs={txs} today={today} habits={habits} streak={streak} focusGoal={focusGoal} />
+
         {/* 3. Change: cash flow + net growth + categories */}
         <Card className="gap-5 p-5">
           <h2 className="text-base font-semibold">{t.cashflowTitle}</h2>
@@ -481,7 +502,12 @@ export default function App() {
 
         {/* 4. Action & details: recent transactions */}
         <Card className="gap-3 p-5">
-          <h2 className="text-base font-semibold">{t.recentTitle}</h2>
+          <div>
+            <h2 className="text-base font-semibold">{t.recentTitle}</h2>
+            {focusGoal && pace > 0 && (
+              <p className="text-xs text-muted-foreground">{format(t.goalCostHint, { goal: `${focusGoal.emoji} ${focusGoal.name}` })}</p>
+            )}
+          </div>
           {recent.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t.noTx}</p>
           ) : (
@@ -499,10 +525,17 @@ export default function App() {
                         {dayLabel(tx.date)} · {t.cats[tx.category]} · {t.channels[tx.channel]}
                       </p>
                     </div>
-                    <p className={cn("shrink-0 text-sm font-semibold tabular-nums", plus && "text-primary")}>
-                      {plus ? "+" : "−"}
-                      {money(tx.amount, hidden)}
-                    </p>
+                    <div className="shrink-0 text-right">
+                      <p className={cn("text-sm font-semibold tabular-nums", plus && "text-primary")}>
+                        {plus ? "+" : "−"}
+                        {money(tx.amount, hidden)}
+                      </p>
+                      {!plus && focusGoal && delayLabel(tx.amount) && (
+                        <p className="text-xs tabular-nums text-muted-foreground" title={format(t.goalCostPush, { goal: focusGoal.name, days: delayLabel(tx.amount)! })}>
+                          {focusGoal.emoji} +{delayLabel(tx.amount)}
+                        </p>
+                      )}
+                    </div>
                     <Button
                       size="icon"
                       variant="ghost"
@@ -539,6 +572,11 @@ export default function App() {
                       <p className="text-xs text-muted-foreground">
                         {h.count} {t.timesPerMonth} · {t.avgEach} {money(h.avg, hidden)}
                       </p>
+                      {focusGoal && delayLabel(h.total) && (
+                        <p className="text-xs font-medium" style={{ color: JAR_HEX[focusGoal.color] }}>
+                          {focusGoal.emoji} {format(t.habitGoalCost, { goal: focusGoal.name, days: delayLabel(h.total)! })}
+                        </p>
+                      )}
                     </div>
                     <p className="shrink-0 font-semibold tabular-nums">{money(h.total, hidden)}</p>
                   </li>
@@ -656,8 +694,12 @@ export default function App() {
         aria-label="Quick actions"
         className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-3 backdrop-blur"
       >
-        <div className="mx-auto grid w-full max-w-md grid-cols-3 gap-2 px-4">
-          <Button onClick={() => setSheet("expense")} className="h-12 flex-col gap-0.5 text-xs" size="lg">
+        <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-2 px-4">
+          <Button onClick={() => setSheet("quicklog")} className="h-12 flex-col gap-0.5 text-xs" size="lg">
+            <Mic className="size-4" />
+            {t.quickLog}
+          </Button>
+          <Button variant="secondary" onClick={() => setSheet("expense")} className="h-12 flex-col gap-0.5 text-xs" size="lg">
             <Receipt className="size-4" />
             {t.logExpense}
           </Button>
@@ -672,6 +714,15 @@ export default function App() {
         </div>
       </nav>
 
+      <QuickLogSheet
+        open={sheet === "quicklog"}
+        onOpenChange={(v) => setSheet(v ? "quicklog" : null)}
+        api={api}
+        safeToday={s.perDay}
+        pacePerDay={pace}
+        focusGoal={focusGoal}
+        onOpenForm={() => setSheet("expense")}
+      />
       <ExpenseSheet open={sheet === "expense"} onOpenChange={(v) => setSheet(v ? "expense" : null)} api={api} />
       <TopUpSheet
         key={topUpJar ?? "none"}
