@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "NODE_RUNTIME=node node ./node_modules/vite-plus/dist/bin.js dev --host 0.0.0.0",
+    "dev:sqlite": "NODE_RUNTIME=node VIBES_LOCAL_DB=true node ./node_modules/vite-plus/dist/bin.js dev --host 0.0.0.0",
     "build": "node ./node_modules/vite-plus/dist/bin.js build",
     "lint": "eslint .",
     "preview": "vite preview"

@@ -85,6 +85,14 @@ export function money(n: number, hidden = false) {
   return `HK$${Math.round(n).toLocaleString("en-HK")}`
 }
 
+// Hong Kong mandatory employee MPF: 5% of relevant monthly income, with
+// the statutory HK$7,100 lower threshold and HK$30,000 upper cap.
+export function calculateMPF(monthlyIncome: number) {
+  const relevantIncome = Math.min(Math.max(0, monthlyIncome), 30_000)
+  if (relevantIncome < 7_100) return 0
+  return Math.round(relevantIncome * 0.05 * 100) / 100
+}
+
 export function cashFlowForecast(opts: {
   startDate: string
   days: number
@@ -152,7 +160,9 @@ export function summary(txs: Tx[], settings: Settings | null, today: string) {
   const totalSaved = sumKind(txs, "saving")
 
   const s = settings
-  const fixed = (s?.rent ?? 0) + (s?.utilities ?? 0) + (s?.mpf ?? 0)
+  // monthly_income is take-home pay, which already has employee MPF deducted,
+  // so MPF is informational only and not subtracted again here.
+  const fixed = (s?.rent ?? 0) + (s?.utilities ?? 0)
   const pct = s?.save_pct ?? 0
   const target = ((s?.monthly_income || income) * pct) / 100
   // Savings already moved this month count toward the target, never double-counted.
