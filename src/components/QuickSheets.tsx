@@ -431,6 +431,16 @@ export function SettingsSheet(props: SheetProps & { onClear: () => void }) {
       </Field>
       <Button onClick={submit} disabled={busy} className="h-11 w-full text-base">{t.save}</Button>
       <Button
+        type="button"
+        variant="outline"
+        className="w-full"
+        onClick={() => {
+          window.open("/api/export", "_blank", "noopener,noreferrer")
+        }}
+      >
+        {t.exportBackup}
+      </Button>
+      <Button
         variant="ghost"
         onClick={() => {
           if (window.confirm(t.clearConfirm)) props.onClear()

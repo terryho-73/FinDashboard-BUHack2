@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import vibes from '@omg-dev/vite-plugin'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
+import { localApiPlugin } from './server/vite-local-api-plugin'
 
 const isNodeRuntime = process.env.NODE_RUNTIME === 'node'
 
@@ -14,7 +15,9 @@ export default defineConfig({
     tanstackRouter({ target: 'react', autoCodeSplitting: true }),
     react(),
     tailwindcss(),
-    ...(isNodeRuntime ? [] : [vibes()]),
+    // Node dev (npm run dev): SQLite-backed /api/* — no Bun required.
+    // Non-node hosts can still use the full @omg-dev vite plugin.
+    ...(isNodeRuntime ? [localApiPlugin()] : [vibes()]),
   ],
   resolve: {
     // pi (and humans copying from shadcn docs) reaches for '@/components/...'

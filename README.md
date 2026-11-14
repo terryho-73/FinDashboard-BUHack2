@@ -81,19 +81,23 @@ Open **http://localhost:5173** (or the Network URL shown in the terminal on your
 
 ## Is the backend working?
 
-**Short answer:** There is **no separate Express/PostgreSQL app** in this repo. Persistence is meant to come from the **`@omg-dev` platform** (collections API + SQLite in development), **not** a hand-written `server/src` API.
+**Short answer (local dev):** **Yes.** `npm run dev` mounts a **Node + SQLite** collection API that matches what `useCollection` expects. Data lives in **`.data/pocketgoals.sqlite`** (gitignored).
 
 | Layer | Status | Notes |
 |-------|--------|--------|
-| **Custom Express + PostgreSQL** | **Not implemented** | Future “Phase B” in `PLAN.md` |
-| **`@omg-dev` collection API** (`/api/goals`, `/api/transactions`, `/api/settings`) | **Conditional in dev** | Provided by `@omg-dev/vite-plugin` (`vibes()`) |
-| **Current `npm run dev` script** | **May disable API** | Sets `NODE_RUNTIME=node`, and `vite.config.ts` **skips** `vibes()` when that is set → `/api/*` may **not** be served locally |
+| **Local dev API** | **Active** | `server/vite-local-api-plugin.ts` when `NODE_RUNTIME=node` |
+| **REST** | **Active in dev** | `GET/POST /api/goals`, `/api/transactions`, `/api/settings` (+ `GET /api/export` JSON backup) |
+| **Realtime** | **Minimal in dev** | WebSocket ` /__vibes_sub` sends snapshots; SSE keepalive at `/__vibes_events` |
+| **Custom Express + PostgreSQL** | **Not implemented** | Optional “Phase B” in `PLAN.md` |
+| **Full `@omg-dev/vite-plugin`** | **Optional** | Used when **not** on Node runtime (e.g. hosted Vibes/Bun builds) |
 
-**How to tell:** With dev running, add a jar or expense. Refresh the page. If data **disappears**, the collection API is not active (or failed). If data **remains**, dev persistence is working.
+**Smoke test:** Add a jar → refresh the page → the jar is still there. In DevTools Network, `POST /api/goals` should return **200** and JSON with an `id`.
 
-**Fix to try (persistence in local dev):** run Vite **with** the vibes plugin—for example remove `NODE_RUNTIME=node` from the `dev` script, or adjust `vite.config.ts` so `vibes()` always loads during `npm run dev`. Re-test `/api/goals` in the browser Network tab.
+**Export:** Settings → **Download JSON backup** (or open `/api/export`).
 
-**Production:** Depends on hosting that supports the Omg/Vibes stack (`npm run build` + their deploy path). There is **no** documented self-hosted Postgres backup in this repo yet.
+**Production `npm run build`:** Outputs static SPA only; pair with Phase B or a hosted Omg deploy for server-backed persistence.
+
+**Deploy note (BUHack demo):** Run `npm run dev` on a laptop or VM for judges (API + SQLite). For static hosting, add Phase B Express or reverse-proxy to a machine running the dev stack until a production API ships.
 
 ---
 
@@ -116,7 +120,10 @@ BUHack2/
 │   ├── favicon-192.png
 │   └── icons/                # PWA / apple-touch icons (from piggyBank)
 ├── server/
-│   └── db.ts                 # Drizzle read helper for @omg-dev (not Express app)
+│   ├── db.ts                 # Drizzle read helper for @omg-dev platform builds
+│   ├── local-db.ts           # SQLite schema + CRUD (dev)
+│   ├── local-api.ts          # REST handlers (/api/*)
+│   └── vite-local-api-plugin.ts  # Vite middleware (enabled under NODE_RUNTIME=node)
 ├── src/
 │   ├── main.tsx              # React entry
 │   ├── App.tsx               # Main dashboard UI
@@ -153,7 +160,7 @@ BUHack2/
 | Styling | Tailwind v4, shadcn 4.23.0 |
 | Data client | `@omg-dev/sdk` (`useCollection`) |
 | Schema | `@omg-dev/schema` (`schema.ts`) |
-| Dev persistence | `@omg-dev/vite-plugin` + SQLite (when vibes plugin is active) |
+| Dev persistence | Local SQLite via `server/*` (Node dev) or `@omg-dev/vite-plugin` on Bun/Vibes hosts |
 | Lint | ESLint |
 
 ---
@@ -174,7 +181,7 @@ BUHack2/
 
 | Item | Severity | Notes |
 |------|----------|--------|
-| **Reliable local `/api` in dev** | **High** | `NODE_RUNTIME=node` disables `vibes()` — see [Backend](#is-the-backend-working) |
+| **Reliable local `/api` in dev** | **Done** | Node SQLite plugin — see [Backend](#is-the-backend-working) |
 | **User accounts / login** | High | No multi-user auth (`@omg-dev/auth` not wired) |
 | **CSV import UI** | Medium | `source: "csv"` exists in schema only |
 | **Export data (JSON/CSV)** | Medium | Only “Clear all” in settings |
@@ -212,9 +219,11 @@ BUHack2/
 ```text
 Browser (React)
     → useCollection → /api/goals | /api/transactions | /api/settings
-    → @omg-dev server (when vibes plugin active)
-    → SQLite (dev)
+    → server/vite-local-api-plugin.ts (Node dev)
+    → .data/pocketgoals.sqlite
 ```
+
+On Bun/Vibes hosts without `NODE_RUNTIME=node`, the same paths can be served by `@omg-dev/vite-plugin` instead.
 
 Future **Phase B** (optional): React → your Express API → PostgreSQL — see `PLAN.md` §14.
 

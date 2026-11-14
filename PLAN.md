@@ -410,7 +410,7 @@ Use this as the default work breakdown for BUHack2. One person = **one primary s
 
 | Person | Role | Primary folders / files | Deliverables (MVP) | Depends on |
 |--------|------|---------------------------|--------------------|------------|
-| **P1 — Platform & data** | Backend / persistence | `schema.ts`, `vite.config.ts`, `package.json`, `server/db.ts`, `src/db.generated.ts`, `functions/` | Fix dev persistence (`vibes()` active under `npm run dev`); document `/api/*` in README; optional `@omg-dev/auth` wiring; export API or collection backup; deploy notes | — |
+| **P1 — Platform & data** | Backend / persistence | `schema.ts`, `vite.config.ts`, `package.json`, `server/local-*.ts`, `src/db.generated.ts`, `functions/` | ✅ Dev persistence via `server/vite-local-api-plugin` + `.data/pocketgoals.sqlite`; README `/api/*`; `GET /api/export` backup; deploy notes (static build + Phase B for prod API) | — |
 | **P2 — Dashboard & navigation** | Core UI shell | `src/App.tsx`, `src/components/Charts.tsx`, `src/routes/*`, `index.html`, `public/icons/*` | Multi-section polish; optional TanStack routes (Activity, Goals list); demo-data banner; loading/empty/error states; piggy icon/branding consistency | P1 for live collections |
 | **P3 — Forms & money entry** | Input flows | `src/components/QuickSheets.tsx`, `src/components/ui/sheet.tsx`, related `ui/*` | Expense / top-up / payday / new jar / settings flows; validation & busy states; round-up UX; delete confirmations; no dead buttons | P1, P4 for field rules |
 | **P4 — Finance & insights** | Domain logic | `src/lib/finance.ts`, `src/lib/seed.ts` | Correct `summary`, forecast, cut-back, streak; Vitest on key functions; UI copy for assumptions (estimate, not guarantee); category/channel enums aligned with `schema.ts` | P1 schema enums |
@@ -446,7 +446,7 @@ Week 2 (before judging)
 
 ### Per-person definition of done
 
-- **P1:** Fresh clone → `npm install` → `npm run dev` → create jar → refresh → data still present; README backend section updated.
+- **P1:** Fresh clone → `npm install` → `npm run dev` → create jar → refresh → data still present in `.data/pocketgoals.sqlite`; README backend section updated; Settings → JSON export works.
 - **P2:** Mobile + desktop usable; bottom nav does not cover content; demo banner if using seed.
 - **P3:** Every primary button in sheets submits or shows validation error; round-up path tested manually.
 - **P4:** `npm run test` (once added) passes for `finance.ts`; forecast/summary match manual spreadsheet spot-check.
@@ -459,3 +459,116 @@ Week 2 (before judging)
 - Express + PostgreSQL Phase B (P1 leads, freeze scope early)
 
 Rename roles in your team chat (e.g. 志恒 = P4) but keep **one owner per row** to avoid merge conflicts.
+
+---
+
+## 21. Implementation progress (per person)
+
+**Legend:** `[x]` done in repo · `[ ]` not started or incomplete · `[-]` in progress (owner marks when started)
+
+**Last reviewed:** 2026-11-14 · **Overall demo:** ~65% (local save/load works on `npm run dev`)
+
+Update checkboxes in PRs that belong to that owner. Do not tick another person’s items without their review.
+
+### P1 — Platform & data
+
+- [x] `schema.ts` — goals, transactions, settings collections defined
+- [x] Node dev backend — `server/local-db.ts`, `server/local-api.ts`, `server/vite-local-api-plugin.ts`
+- [x] `vite.config.ts` — `localApiPlugin()` when `NODE_RUNTIME=node`
+- [x] SQLite path `.data/pocketgoals.sqlite` (gitignored)
+- [x] REST: `GET/POST/PATCH/DELETE` on `/api/goals`, `/api/transactions`, `/api/settings`
+- [x] `GET /api/export` JSON backup
+- [x] Minimal `__vibes_sub` WebSocket + `__vibes_events` keepalive for SDK
+- [x] README backend + architecture updated
+- [x] `package.json` deps: `better-sqlite3`, `ws`
+- [ ] `@omg-dev/auth` / multi-user (optional MVP)
+- [ ] Phase B Express + PostgreSQL decision or spike doc
+- [ ] Production API strategy (static `dist/` + separate host)
+
+**P1 sign-off check:** `npm install` → `npm run dev` → see `[pocketgoals]` log → create jar → refresh → jar persists.
+
+---
+
+### P2 — Dashboard & navigation
+
+- [x] Main dashboard in `src/App.tsx` (hero, forecast, jars, charts, insights)
+- [x] TanStack Router shell — `src/routes/__root.tsx`, `src/routes/index.tsx` → `/`
+- [x] Header controls (lang, privacy, theme, settings)
+- [x] Fixed bottom action bar (expense, top-up, payday)
+- [x] `src/components/Charts.tsx` — rings, bars, line
+- [x] App title + favicons (`index.html`, `public/*`, piggy source)
+- [ ] Demo-data banner when `source: "demo"` rows present
+- [ ] Explicit loading / error UI when `useCollection` returns `error` (not only “Loading…”)
+- [ ] Optional routes: `/activity`, `/goals`, `/import` (file-based routes)
+- [ ] Bottom nav safe-area / overlap QA on small phones
+
+**P2 sign-off check:** Scroll full page on mobile width; jars swipe; no content hidden behind bottom bar.
+
+---
+
+### P3 — Forms & money entry
+
+- [x] `QuickSheets.tsx` — expense, top-up, payday, new jar, settings
+- [x] Validation (disabled submit until amount/title rules met)
+- [x] Round-up chips when settings allow
+- [x] Delete confirmations for jar / transaction
+- [x] Settings → JSON export button (opens `/api/export`)
+- [x] Clear all data flow
+- [ ] User-visible error toast/message when `POST /api/*` fails (network down)
+- [ ] CSV import sheet + file picker (schema `source: "csv"`)
+- [ ] Busy state blocks double-submit on all sheets (audit payday/top-up)
+- [ ] Manual QA script: one path each for expense, top-up, payday, new jar
+
+**P3 sign-off check:** With backend up, every bottom-bar and sheet primary button completes or shows validation.
+
+---
+
+### P4 — Finance & insights
+
+- [x] `src/lib/finance.ts` — summary, safe-to-spend, forecast, streak, insights, cut-back
+- [x] `src/lib/seed.ts` — demo dataset (parallel writes; needs stable API)
+- [x] Types/enums aligned with `schema.ts` (categories, channels, jar colors)
+- [x] UI wiring in `App.tsx` for forecast “what if purchase”, invisible spend, subscriptions
+- [ ] Vitest (`npm run test`) for `summary`, `cashFlowForecast`, `cutBack`, `savingsStreak`
+- [ ] Spreadsheet spot-check doc or test vectors (sample month of txs)
+- [ ] Footnote copy reviewed (“estimate, not guarantee”) EN + 繁
+- [ ] Minor-unit / decimal policy documented if rubric requires it
+
+**P4 sign-off check:** Numbers on dashboard match hand calculation for one fixed fixture (in test or doc).
+
+---
+
+### P5 — Language, quality & release
+
+- [x] `src/lib/i18n.ts` — EN + 繁 for core UI and sheets
+- [x] `src/lib/prefs.tsx` — lang, dark, hide amounts (localStorage)
+- [x] `exportBackup` string (EN + 繁)
+- [x] `README.md` — run, features, backend, repo tree, gaps
+- [x] `PLAN.md` — team split + this progress section
+- [ ] ESLint clean run documented (`npm run lint`) in README/PR template
+- [ ] Playwright (or similar) smoke: load → demo → log expense → refresh
+- [ ] &lt;5 min demo checklist for judges (step list in README)
+- [ ] a11y pass: sheet labels, `aria-label` on icon buttons, charts with privacy mode
+- [ ] Submission assets (deck / video / poster) — outside repo
+
+**P5 sign-off check:** Switch 繁 + hide amounts during demo; no missing i18n keys in console.
+
+---
+
+### Cross-team integration (everyone)
+
+- [x] Single command `npm run dev` serves UI + API
+- [x] `npm run build` succeeds
+- [ ] `npm run lint` passes with zero new errors (run before merge)
+- [ ] No `npm audit fix --force`
+- [ ] Team agrees who owns next: CSV import vs Phase B vs auth
+
+### Quick status snapshot
+
+| Person | Progress (approx.) | Blocker / next step |
+|--------|-------------------|---------------------|
+| **P1** | **~90%** | Auth/production optional |
+| **P2** | **~70%** | Error/empty states, optional routes |
+| **P3** | **~75%** | API error UX, CSV |
+| **P4** | **~60%** | Vitest + fixture checks |
+| **P5** | **~65%** | E2E smoke + demo script |
