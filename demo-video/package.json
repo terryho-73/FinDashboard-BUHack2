@@ -1,0 +1,21 @@
+{
+  "name": "pocketgoals-demo-video",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "music": "node scripts/make-music.mjs",
+    "record": "node scripts/record.mjs",
+    "render": "remotion render src/index.ts Demo out/savings-jars-demo.mp4 --codec=h264 --audio-codec=aac"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.543",
+    "@remotion/google-fonts": "^4.0.543",
+    "@types/react": "^19.3.0",
+    "puppeteer-core": "^25.17.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "remotion": "^4.0.543",
+    "typescript": "^7.0.2"
+  }
+}

@@ -1,0 +1,6 @@
+node_modules
+out
+# generated: npm run music / npm run record
+public/music.wav
+public/rec/
+src/recording.json

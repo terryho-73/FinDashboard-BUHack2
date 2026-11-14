@@ -3,7 +3,15 @@
 Bilingual, mobile-first **savings jar** dashboard for Hong Kong students and young professionals.  
 **Spec & roadmap:** [`PLAN.md`](PLAN.md) · **UI rules:** [`AGENTS.md`](AGENTS.md)
 
-> **Recording savings ≠ moving money.** Jars and round-ups are virtual tracking only—not bank or Octopus transfers.
+## Demo video
+
+[![Watch the 3-minute demo](docs/demo/thumbnail.jpg)](docs/demo/savings-jars-demo.mp4)
+
+▶️ **[Watch the 3-minute demo](docs/demo/savings-jars-demo.mp4)**: onboarding, safe-to-spend, the cash-flow forecast, savings jars, AI Quick log, goal cost, weekly challenges, insights, and privacy, language and dark mode.
+
+The video is generated with [Remotion](https://www.remotion.dev/) from a scripted recording of the real app. See [`demo-video/`](demo-video/README.md) to re-record or re-render it.
+
+**Repository status:** Specification and agent guidance live here; application code (`client/`, `server/`, `shared/`, `tests/`) is **not yet scaffolded**.
 
 ---
 
@@ -40,9 +48,16 @@ npm run dev
 
 Open **http://localhost:5173** (or the Network URL shown in the terminal on your phone).
 
-> Do **not** run `npm audit fix --force` — it installs the wrong `shadcn` package and breaks CSS.
+| Layer | Choice |
+|-------|--------|
+| Frontend | React, **TypeScript**, Vite Plus, TanStack Router, Tailwind CSS v4, shadcn/ui, Lucide React |
+| Backend | Vite Plus with `@omg-dev/vite-plugin` and `@omg-dev/server`, local SQLite database |
+| Data access | `@omg-dev/sdk` collections, Drizzle ORM, Better Drizzle |
+| Shared | Typed pure finance and preference modules in `src/lib/` |
+| Validation | ESLint and Vite Plus production build |
+| Defaults | HKD, `Asia/Hong_Kong`, English + Traditional Chinese |
 
-### First visit
+Use the Vibes development plugin for local API routes, database access, and realtime collection updates. The current prototype runs in credential-free Demo mode with fictional local data.
 
 1. If the screen is empty, tap **Load demo data** (seeds jars, settings, and sample transactions).
 2. Or open **Settings** (gear) and enter monthly income, rent, utilities, MPF, and savings %.
@@ -58,11 +73,15 @@ Open **http://localhost:5173** (or the Network URL shown in the terminal on your
 
 ### Bottom bar (main actions)
 
-| Button | Action |
-|--------|--------|
-| **Log expense** | Title, amount, date, category, channel, recurring; optional round-up to a jar |
-| **Top up jar** | Add a **saving** transaction to a chosen jar |
-| **Payday** | Record income; optionally split savings % across jars |
+- Mobile-first dashboard with savings summary and **safe-to-spend** estimate
+- Virtual saving jars with targets, progress, top-ups, and deletion
+- Expense logging with categories, payment channels, recurring charges, and round-up savings
+- Payday income logging with automatic savings split across jars
+- Cash-flow forecast with planned-purchase impact preview
+- Spending charts, recent activity, subscription detection, and cut-back insights
+- Budget settings for income, rent, utilities, MPF, savings percentage, and round-up amount
+- Privacy toggle for hiding balances, bilingual English/Traditional Chinese UI, and light/dark theme
+- Demo seed data with local SQLite persistence and realtime collection updates
 
 ### Dashboard (scroll)
 
@@ -72,10 +91,17 @@ Open **http://localhost:5173** (or the Network URL shown in the terminal on your
 - **Jar cards** — swipe horizontally; **+ New jar**  
 - **Charts** and **recent activity** (delete rows with trash icon)  
 - **Insights** — habits, subscriptions, cut-back slider  
+```text
+React (Tailwind / TanStack Router) ──SDK collections──► Vite Plus + Vibes API ──► SQLite
+                                                        └──► Local realtime updates
+```
 
 ### Typical flow
 
-1. Demo or settings → 2. Log expenses / payday → 3. Top up jars → 4. Check safe-to-spend and insights → 5. Toggle 繁 / hide amounts for screenshots.
+1. No database logic in React components; use SDK collections and the Vibes API.
+2. Financial formulas live in **typed pure modules** under `src/lib/`; keep display logic separate from data access.
+3. The current prototype runs in **Demo mode** with local SQLite persistence and no credentials. Account mode is not implemented yet.
+4. AI (when added) uses an allowlisted tool set only—no unrestricted SQL or transfers.
 
 ---
 
