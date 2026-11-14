@@ -12,6 +12,7 @@ export const goals = sqlite.sqliteTable("goals", {
   "target": sqlite.real("target"),
   "emoji": sqlite.text("emoji"),
   "color": sqlite.text("color"),
+  "target_date": sqlite.text("target_date"),
 })
 
 export const transactions = sqlite.sqliteTable("transactions", {

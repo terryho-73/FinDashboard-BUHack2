@@ -4,6 +4,8 @@ export type Goal = {
   target: number
   emoji: string
   color: "rose" | "amber" | "sky" | "emerald" | "violet"
+  /** Optional trip / milestone date (YYYY-MM-DD) for calendar */
+  target_date?: string
 }
 
 export type Tx = {
