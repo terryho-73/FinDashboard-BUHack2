@@ -2,6 +2,14 @@
 
 Bilingual, mobile-first savings dashboard for university students, fresh graduates, and young professionals in Hong Kong.
 
+## Demo video
+
+[![Watch the 3-minute demo](docs/demo/thumbnail.jpg)](docs/demo/savings-jars-demo.mp4)
+
+▶️ **[Watch the 3-minute demo](docs/demo/savings-jars-demo.mp4)**: onboarding, safe-to-spend, the cash-flow forecast, savings jars, AI Quick log, goal cost, weekly challenges, insights, and privacy, language and dark mode.
+
+The video is generated with [Remotion](https://www.remotion.dev/) from a scripted recording of the real app. See [`demo-video/`](demo-video/README.md) to re-record or re-render it.
+
 **Repository status:** Specification and agent guidance live here; application code (`client/`, `server/`, `shared/`, `tests/`) is **not yet scaffolded**.
 
 **Build specification:** [`PLAN.md`](PLAN.md) — milestones, API, data model, financial rules, testing, and contributor workflow.
