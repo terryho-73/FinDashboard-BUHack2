@@ -4,10 +4,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
-import { usePrefs } from "@/lib/prefs"
+import { usePrefs } from "@/lib/prefs-context"
 import { format } from "@/lib/i18n"
 import {
   CHANNELS,
+  calculateMPF,
   EXPENSE_CATS,
   JAR_COLORS,
   JAR_EMOJIS,
@@ -101,8 +102,10 @@ export function ExpenseSheet(props: SheetProps) {
   const [channel, setChannel] = useState<(typeof CHANNELS)[number]>("octopus")
   const [date, setDate] = useState(todayISO())
   const [recurring, setRecurring] = useState(false)
-  const [jarId, setJarId] = useState<string>(api.goals[0]?.id ?? "")
+  const [pickedJarId, setJarId] = useState<string>("")
   const [busy, setBusy] = useState(false)
+  // Sheets mount before data loads, so resolve the default jar at render time.
+  const jarId = api.goals.some((g) => g.id === pickedJarId) ? pickedJarId : (api.goals[0]?.id ?? "")
 
   const amount = parseAmount(amountText)
   const roundTo = api.settings?.round_to ?? 10
@@ -191,11 +194,12 @@ export function ExpenseSheet(props: SheetProps) {
 export function TopUpSheet(props: SheetProps & { initialJarId?: string }) {
   const { t } = usePrefs()
   const { api } = props
-  const [jarId, setJarId] = useState(props.initialJarId ?? api.goals[0]?.id ?? "")
+  const [pickedJarId, setJarId] = useState(props.initialJarId ?? "")
   const [amountText, setAmountText] = useState("")
   const [busy, setBusy] = useState(false)
   const amount = parseAmount(amountText)
-  const jar = api.goals.find((g) => g.id === jarId)
+  const jar = api.goals.find((g) => g.id === pickedJarId) ?? api.goals[0]
+  const jarId = jar?.id ?? ""
 
   async function submit() {
     if (!jar || amount <= 0 || busy) return
@@ -230,7 +234,7 @@ export function TopUpSheet(props: SheetProps & { initialJarId?: string }) {
           <Field label={t.amountLabel}>
             <Input inputMode="decimal" value={amountText} onChange={(e) => setAmountText(e.target.value)} placeholder="500" />
           </Field>
-          <Button onClick={submit} disabled={amount <= 0 || busy} className="h-11 w-full text-base">
+          <Button onClick={submit} disabled={!jar || amount <= 0 || busy} className="h-11 w-full text-base">
             {t.addTopUp}
           </Button>
         </>
@@ -244,7 +248,9 @@ export function TopUpSheet(props: SheetProps & { initialJarId?: string }) {
 export function PaydaySheet(props: SheetProps) {
   const { t } = usePrefs()
   const { api } = props
-  const [amountText, setAmountText] = useState(String(api.settings?.monthly_income || ""))
+  // null = untouched, so the field follows saved settings once they load.
+  const [typedAmount, setAmountText] = useState<string | null>(null)
+  const amountText = typedAmount ?? String(api.settings?.monthly_income || "")
   const [busy, setBusy] = useState(false)
   const pay = parseAmount(amountText)
   const pct = api.settings?.save_pct ?? 0
@@ -269,6 +275,7 @@ export function PaydaySheet(props: SheetProps) {
           })
         }
       }
+      setAmountText(null)
       props.onOpenChange(false)
     } finally {
       setBusy(false)
@@ -360,7 +367,7 @@ export function GoalSheet(props: SheetProps) {
 
 // ── Settings (budget + round-up) ─────────────────────────────────────────────
 
-export function SettingsSheet(props: SheetProps & { onClear: () => void }) {
+export function SettingsSheet(props: SheetProps & { onClear?: () => void; onSaved?: () => void }) {
   const { t } = usePrefs()
   const { api } = props
   const s = api.settings
@@ -368,27 +375,32 @@ export function SettingsSheet(props: SheetProps & { onClear: () => void }) {
     monthly_income: String(s?.monthly_income ?? ""),
     rent: String(s?.rent ?? ""),
     utilities: String(s?.utilities ?? ""),
-    mpf: String(s?.mpf ?? ""),
     save_pct: String(s?.save_pct ?? "20"),
   }))
   const [roundTo, setRoundTo] = useState<number>(s?.round_to ?? 10)
   const [roundupOn, setRoundupOn] = useState<boolean>(s?.roundup_on ?? true)
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const num = (k: keyof typeof vals) => Math.max(0, Number(vals[k].replace(/,/g, "")) || 0)
+  const mpf = calculateMPF(num("monthly_income"))
 
   async function submit() {
     setBusy(true)
+    setError(null)
     try {
       await api.saveSettings({
         monthly_income: num("monthly_income"),
         rent: num("rent"),
         utilities: num("utilities"),
-        mpf: num("mpf"),
+        mpf,
         save_pct: Math.min(100, num("save_pct")),
         round_to: roundTo,
         roundup_on: roundupOn,
       })
       props.onOpenChange(false)
+      props.onSaved?.()
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Unable to save settings")
     } finally {
       setBusy(false)
     }
@@ -398,7 +410,6 @@ export function SettingsSheet(props: SheetProps & { onClear: () => void }) {
     { k: "monthly_income", label: t.monthlyIncome },
     { k: "rent", label: t.rent },
     { k: "utilities", label: t.utilities },
-    { k: "mpf", label: t.mpf },
     { k: "save_pct", label: t.savePct },
   ]
 
@@ -414,6 +425,10 @@ export function SettingsSheet(props: SheetProps & { onClear: () => void }) {
             />
           </Field>
         ))}
+        <Field label={t.mpf}>
+          <Input value={String(mpf)} readOnly disabled aria-describedby="mpf-hint" />
+          <p id="mpf-hint" className="text-xs text-muted-foreground">{t.mpfHint}</p>
+        </Field>
       </div>
       <div className="flex items-center justify-between gap-4 rounded-2xl bg-muted/50 p-4">
         <div className="min-w-0">
@@ -430,15 +445,18 @@ export function SettingsSheet(props: SheetProps & { onClear: () => void }) {
         </ChipRow>
       </Field>
       <Button onClick={submit} disabled={busy} className="h-11 w-full text-base">{t.save}</Button>
-      <Button
-        variant="ghost"
-        onClick={() => {
-          if (window.confirm(t.clearConfirm)) props.onClear()
-        }}
-        className="w-full text-destructive"
-      >
-        {t.clearAll}
-      </Button>
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      {props.onClear && (
+        <Button
+          variant="ghost"
+          onClick={() => {
+            if (window.confirm(t.clearConfirm)) props.onClear?.()
+          }}
+          className="w-full text-destructive"
+        >
+          {t.clearAll}
+        </Button>
+      )}
     </SheetShell>
   )
 }

@@ -1,17 +1,6 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
-import { dict, type Dict, type Lang } from "@/lib/i18n"
-
-type Prefs = {
-  lang: Lang
-  setLang: (l: Lang) => void
-  t: Dict
-  dark: boolean
-  setDark: (v: boolean) => void
-  hidden: boolean
-  setHidden: (v: boolean) => void
-}
-
-const Ctx = createContext<Prefs | null>(null)
+import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { dict, type Lang } from "@/lib/i18n"
+import { PrefsContext, type Prefs } from "@/lib/prefs-context"
 
 const KEY = "savings-jars-prefs"
 
@@ -53,11 +42,5 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
     [state],
   )
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>
-}
-
-export function usePrefs() {
-  const v = useContext(Ctx)
-  if (!v) throw new Error("usePrefs must be used inside PrefsProvider")
-  return v
+  return <PrefsContext.Provider value={value}>{children}</PrefsContext.Provider>
 }

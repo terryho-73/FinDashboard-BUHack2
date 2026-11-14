@@ -92,6 +92,40 @@ Safe-to-spend (MVP): balance-based discretionary allowance divided by remaining 
 | Demo | Fictional seed data, no credentials, full UI flow, visible “Demo data” label |
 | Account | Session auth, PostgreSQL, ownership checks on every record |
 
+### Local SQLite testing
+
+The Vite plugin already provides a local SQLite database for development. Run
+the SQLite-backed mode with Bun:
+
+```bash
+bun run dev:sqlite
+```
+
+By default, the database is stored at `.vibes/data.db` and uses local auth.
+Override the path with `VIBES_DB`, for example:
+
+```bash
+VIBES_DB=.vibes/test.db bun run dev:sqlite
+```
+
+`bun run dev` runs Vite under Bun with the vibes plugin (local auth). Without
+Bun, use `npm run dev:sqlite`: the vibes plugin is Bun-only, so under Node the
+local SQLite plugin serves `/api/*` instead.
+
+### Demo walkthrough
+
+1. Open `/` on an empty database — you are redirected to `/onboarding`.
+2. **Try demo** seeds four jars, six months of paydays and a month of
+   spending, then opens the dashboard with a **Demo data** badge in the header.
+   (Or **Set up budget** to start from your own numbers; saving lands you on
+   the dashboard.)
+3. On the dashboard: hero safe-to-spend, the 30-day cash-flow forecast (type a
+   large amount into **Test a purchase** to see a danger zone), jars, cash
+   flow, categories, and insights (invisible spend, subscriptions, cut-back).
+4. Use the bottom bar to log an expense (with round-up), top up a jar or record
+   a payday split.
+5. **Settings → Clear all data** returns you to onboarding for the next run.
+
 ## Suggested build order
 
 See [`PLAN.md` §14](PLAN.md) for milestones 0–6 (UI prototype → financial logic → persistence → import → integrations → production).

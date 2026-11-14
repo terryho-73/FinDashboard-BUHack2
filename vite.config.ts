@@ -4,8 +4,14 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import vibes from '@omg-dev/vite-plugin'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
+import { localDbPlugin } from './server/local-db'
 
 const isNodeRuntime = process.env.NODE_RUNTIME === 'node'
+// The vibes plugin needs Bun, so under Node the app has no /api backend unless
+// the local SQLite plugin serves it. Default it on for Node; opt out with
+// VIBES_LOCAL_DB=false.
+const useLocalDb =
+  process.env.VIBES_LOCAL_DB === 'true' || (isNodeRuntime && process.env.VIBES_LOCAL_DB !== 'false')
 
 export default defineConfig({
   plugins: [
@@ -14,6 +20,9 @@ export default defineConfig({
     tanstackRouter({ target: 'react', autoCodeSplitting: true }),
     react(),
     tailwindcss(),
+    // Node fallback (`dev:sqlite`): serve /api from local SQLite.
+    ...(useLocalDb ? [localDbPlugin(process.env.VIBES_DB ?? '.vibes/data.db')] : []),
+    // Bun (`dev`): the vibes plugin with local auth.
     ...(isNodeRuntime ? [] : [vibes({ auth: 'local' })]),
   ],
   resolve: {

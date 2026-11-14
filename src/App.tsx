@@ -1,25 +1,26 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useCollection } from "@omg-dev/sdk"
 import {
   Eye,
   EyeOff,
   Flame,
   Moon,
+  PiggyBank,
   Plus,
   Repeat,
   Settings as SettingsIcon,
   Sun,
   Trash2,
   Wallet,
-  PiggyBank,
   Receipt,
   AlertTriangle,
   CheckCircle2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { usePrefs } from "@/lib/prefs"
+import { usePrefs } from "@/lib/prefs-context"
 import { format } from "@/lib/i18n"
 import {
   categoryTotals,
@@ -39,8 +40,8 @@ import {
   type Settings,
   type Tx,
 } from "@/lib/finance"
-import { seedDemo } from "@/lib/seed"
 import { cn } from "@/lib/utils"
+import { useNavigate } from "@tanstack/react-router"
 import { ProgressRing, NetLine, CategoryBars, FlowBars } from "@/components/Charts"
 import {
   ExpenseSheet,
@@ -51,10 +52,13 @@ import {
   type Api,
 } from "@/components/QuickSheets"
 
+const SAFETY_BUFFER = 1000
+
 type SheetKey = "expense" | "topup" | "payday" | "goal" | "settings" | null
 
 export default function App() {
   const { t, lang, setLang, dark, setDark, hidden, setHidden } = usePrefs()
+  const navigate = useNavigate()
   const goalsQ = useCollection<Goal>({ collection: "goals", api: "/api/goals" })
   const txQ = useCollection<Tx>({ collection: "transactions", api: "/api/transactions" })
   const settingsQ = useCollection<Settings>({ collection: "settings", api: "/api/settings" })
@@ -130,7 +134,13 @@ export default function App() {
 
   const totalSaved = s.totalSaved
   const loading = goalsQ.loading || txQ.loading || settingsQ.loading
-  const empty = !loading && goals.length === 0 && txs.length === 0
+  // Brand-new user = nothing saved at all. Someone who only set a budget in
+  // onboarding has settings and must stay on the dashboard, not loop back.
+  const empty = !loading && goals.length === 0 && txs.length === 0 && !settings
+  const isDemo = txs.some((tx) => tx.source === "demo")
+  useEffect(() => {
+    if (empty) void navigate({ to: "/onboarding", replace: true })
+  }, [empty, navigate])
   const habit = habits[Math.min(habitIdx, habits.length - 1)]
   const openJars = goals.filter((g) => goalSaved(g.id, txs) < g.target)
   const cutGoal = goals.find((g) => g.id === cutGoalId) ?? openJars[0] ?? goals[0] ?? null
@@ -138,47 +148,57 @@ export default function App() {
     ? cutBack({ perWeek: skip, unitCost: habit.avg, txs, today, goal: cutGoal })
     : null
 
-  const forecast = useMemo(() => {
+  // One set of forecast inputs, shared by the baseline and the "test a
+  // purchase" what-if so both project the same payday and bills.
+  const forecastInputs = useMemo(() => {
     const totalIncome = txs.filter((t) => t.kind === "income").reduce((n, t) => n + t.amount, 0)
     const totalOut = txs.filter((t) => t.kind !== "income").reduce((n, t) => n + t.amount, 0)
     const recentExpense = txs
       .filter((t) => t.kind === "expense" && t.date >= addDays(today, -30) && t.date <= today && !t.recurring)
       .reduce((n, t) => n + t.amount, 0)
-    const nextMonth = new Date(`${today.slice(0, 7)}-01T00:00:00`)
-    nextMonth.setMonth(nextMonth.getMonth() + 1)
-    const payday = todayISO(new Date(nextMonth.getFullYear(), nextMonth.getMonth(), 1))
-    const billDate = todayISO(new Date(new Date(today).getFullYear(), new Date(today).getMonth(), 25))
-    const nextBill = billDate > today ? billDate : addDays(billDate, 31)
+    const [y, m, d] = today.split("-").map(Number)
+    const payday = todayISO(new Date(y, m, 1)) // 1st of next month
+    // Rent & bills on the 25th: this month if still ahead, else next month.
+    const nextBill = todayISO(new Date(y, d < 25 ? m - 1 : m, 25))
     const events = [
       { date: payday, title: "Payday", amount: settings?.monthly_income ?? 0, kind: "income" as const },
       { date: nextBill, title: "Rent & bills", amount: (settings?.rent ?? 0) + (settings?.utilities ?? 0), kind: "expense" as const },
     ].filter((event) => event.amount > 0)
-    return cashFlowForecast({
+    return {
       startDate: today,
       days: 30,
       startingBalance: Math.max(0, totalIncome - totalOut),
       dailySpend: recentExpense / 30,
-      safetyBuffer: 1000,
+      safetyBuffer: SAFETY_BUFFER,
       events,
-    })
+    }
   }, [settings, today, txs])
+  const forecast = useMemo(() => cashFlowForecast(forecastInputs), [forecastInputs])
+  // Without any recorded income the projection starts from HK$0 and would
+  // flag "danger" on day one, so ask for a payday first instead.
+  const hasIncome = txs.some((tx) => tx.kind === "income")
+  const forecastPeak = Math.max(1, ...forecast.days.map((day) => day.balance))
   const [purchaseAmount, setPurchaseAmount] = useState("")
   const purchase = Math.max(0, Number(purchaseAmount.replace(/,/g, "")) || 0)
   const purchaseForecast = useMemo(
     () => purchase > 0
       ? cashFlowForecast({
-          startDate: today,
-          days: 30,
-          startingBalance: Math.max(0, txs.filter((t) => t.kind === "income").reduce((n, t) => n + t.amount, 0) - txs.filter((t) => t.kind !== "income").reduce((n, t) => n + t.amount, 0)),
-          dailySpend: txs.filter((t) => t.kind === "expense" && t.date >= addDays(today, -30) && t.date <= today && !t.recurring).reduce((n, t) => n + t.amount, 0) / 30,
-          safetyBuffer: 1000,
+          ...forecastInputs,
           events: [
+            ...forecastInputs.events,
             { date: today, title: "Planned purchase", amount: purchase, kind: "expense" as const },
           ],
         })
       : null,
-    [purchase, today, txs],
+    [forecastInputs, purchase, today],
   )
+  // How much less to spend per day (until the lowest point) to stay above the buffer.
+  const purchaseCutPerDay = purchaseForecast?.firstDangerDate
+    ? Math.ceil(
+        (SAFETY_BUFFER - purchaseForecast.lowestBalance) /
+          Math.max(1, purchaseForecast.days.findIndex((day) => day.date === purchaseForecast.lowestDate) + 1),
+      )
+    : 0
 
   const monthLabel = (key: string) =>
     new Date(`${key}-01T00:00:00`).toLocaleString(lang === "zh" ? "zh-HK" : "en", { month: "short" })
@@ -212,7 +232,10 @@ export default function App() {
         <div className="mx-auto flex w-full max-w-md items-center gap-2 px-4 py-3">
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-base font-semibold tracking-tight">{t.appName}</h1>
-            <p className="truncate text-xs text-muted-foreground">{t.tagline}</p>
+            <div className="flex min-w-0 items-center gap-1.5">
+              {isDemo && <Badge variant="secondary" className="shrink-0">{t.demoBadge}</Badge>}
+              <p className="truncate text-xs text-muted-foreground">{t.tagline}</p>
+            </div>
           </div>
           <Button
             variant="ghost"
@@ -260,15 +283,6 @@ export default function App() {
           <p className="py-10 text-center text-sm text-muted-foreground">{t.emptyLoading}</p>
         )}
 
-        {empty && (
-          <Card className="gap-3 p-5 text-center">
-            <p className="text-sm text-muted-foreground">{t.demoHint}</p>
-            <Button onClick={() => seedDemo(api as unknown as Parameters<typeof seedDemo>[0])} className="h-11">
-              {t.demo}
-            </Button>
-          </Card>
-        )}
-
         {/* 1. Hero status: total saved + safe-to-spend */}
         <section className="rounded-3xl bg-primary p-5 text-primary-foreground shadow-sm">
           <p className="text-sm opacity-80">{t.heroSaved}</p>
@@ -304,19 +318,27 @@ export default function App() {
 
         <Card className="gap-4 border-primary/20 p-5">
           <div className="flex items-start gap-3">
-            <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-2xl", forecast.firstDangerDate ? "bg-destructive/15 text-destructive" : "bg-primary/15 text-primary")}>
-              {forecast.firstDangerDate ? <AlertTriangle className="size-5" /> : <CheckCircle2 className="size-5" />}
+            <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-2xl", hasIncome && forecast.firstDangerDate ? "bg-destructive/15 text-destructive" : "bg-primary/15 text-primary")}>
+              {hasIncome && forecast.firstDangerDate ? <AlertTriangle className="size-5" /> : <CheckCircle2 className="size-5" />}
             </div>
             <div className="min-w-0 flex-1">
               <h2 className="text-base font-semibold">{t.forecastTitle}</h2>
               <p className="mt-1 text-sm">
-                {forecast.firstDangerDate
-                  ? format(t.forecastDanger, { date: forecast.firstDangerDate.slice(5) })
-                  : t.forecastSafe}
+                {!hasIncome
+                  ? t.forecastEmpty
+                  : forecast.firstDangerDate
+                    ? format(t.forecastDanger, { date: forecast.firstDangerDate.slice(5) })
+                    : t.forecastSafe}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">{t.forecastHint}</p>
             </div>
           </div>
+          {!hasIncome ? (
+            <Button variant="secondary" onClick={() => setSheet("payday")} className="h-10 gap-2">
+              <Wallet className="size-4" /> {t.payday}
+            </Button>
+          ) : (
+          <>
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-2xl bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground">{t.forecastLow}</p>
@@ -324,7 +346,7 @@ export default function App() {
             </div>
             <div className="rounded-2xl bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground">{t.forecastBuffer}</p>
-              <p className="mt-1 text-lg font-semibold tabular-nums">{money(1000, hidden)}</p>
+              <p className="mt-1 text-lg font-semibold tabular-nums">{money(SAFETY_BUFFER, hidden)}</p>
             </div>
           </div>
           <div className="flex h-12 items-end gap-1" role="img" aria-label={t.forecastTitle}>
@@ -336,7 +358,7 @@ export default function App() {
                   "min-w-0 flex-1 rounded-t-sm",
                   day.status === "danger" ? "bg-destructive" : day.status === "watch" ? "bg-accent-foreground/50" : "bg-primary",
                 )}
-                style={{ height: `${Math.max(10, Math.min(100, (day.balance / Math.max(1, forecast.days[0]?.balance ?? 1)) * 100))}%` }}
+                style={{ height: `${Math.max(10, Math.min(100, (day.balance / forecastPeak) * 100))}%` }}
               />
             ))}
           </div>
@@ -350,11 +372,13 @@ export default function App() {
               <div className={cn("mt-3 rounded-2xl p-3 text-sm", purchaseForecast.firstDangerDate ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary")}>
                 <p className="font-medium">{purchaseForecast.firstDangerDate ? t.forecastBuyDanger : t.forecastBuySafe}</p>
                 {purchaseForecast.firstDangerDate && (
-                  <p className="mt-1 text-xs">{format(t.forecastRecommendation, { amount: Math.ceil(purchase / 14) })}</p>
+                  <p className="mt-1 text-xs">{format(t.forecastRecommendation, { amount: money(purchaseCutPerDay, hidden) })}</p>
                 )}
               </div>
             )}
           </div>
+          </>
+          )}
         </Card>
 
         {/* 2. Progress: saving jars (swipeable) */}
@@ -659,6 +683,7 @@ export default function App() {
       <PaydaySheet open={sheet === "payday"} onOpenChange={(v) => setSheet(v ? "payday" : null)} api={api} />
       <GoalSheet open={sheet === "goal"} onOpenChange={(v) => setSheet(v ? "goal" : null)} api={api} />
       <SettingsSheet
+        key={settings?.id ?? "new"}
         open={sheet === "settings"}
         onOpenChange={(v) => setSheet(v ? "settings" : null)}
         api={api}
