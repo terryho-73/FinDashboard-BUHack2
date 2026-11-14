@@ -14,7 +14,7 @@ export default defineConfig({
     tanstackRouter({ target: 'react', autoCodeSplitting: true }),
     react(),
     tailwindcss(),
-    ...(isNodeRuntime ? [] : [vibes()]),
+    ...(isNodeRuntime ? [] : [vibes({ auth: 'local' })]),
   ],
   resolve: {
     // pi (and humans copying from shadcn docs) reaches for '@/components/...'
