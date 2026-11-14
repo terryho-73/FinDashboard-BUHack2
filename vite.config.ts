@@ -5,6 +5,8 @@ import tailwindcss from '@tailwindcss/vite'
 import vibes from '@omg-dev/vite-plugin'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 
+const isNodeRuntime = process.env.NODE_RUNTIME === 'node'
+
 export default defineConfig({
   plugins: [
     // Must come before react(): it generates src/routeTree.gen.ts from
@@ -12,7 +14,7 @@ export default defineConfig({
     tanstackRouter({ target: 'react', autoCodeSplitting: true }),
     react(),
     tailwindcss(),
-    vibes(),
+    ...(isNodeRuntime ? [] : [vibes()]),
   ],
   resolve: {
     // pi (and humans copying from shadcn docs) reaches for '@/components/...'

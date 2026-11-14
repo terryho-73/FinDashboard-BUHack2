@@ -31,6 +31,27 @@ export type Settings = {
   roundup_on: boolean
 }
 
+export type ForecastEvent = {
+  date: string
+  title: string
+  amount: number
+  kind: "income" | "expense"
+}
+
+export type ForecastDay = {
+  date: string
+  balance: number
+  event?: ForecastEvent
+  status: "safe" | "watch" | "danger"
+}
+
+export type CashFlowForecast = {
+  days: ForecastDay[]
+  lowestBalance: number
+  lowestDate: string
+  firstDangerDate: string | null
+}
+
 export const EXPENSE_CATS = ["food", "transport", "shopping", "entertainment", "bills", "subscription", "other"] as const
 export const CHANNELS = ["octopus", "payme", "alipayhk", "fps", "credit", "cash", "bank", "other"] as const
 export const JAR_EMOJIS = ["✈️", "🏠", "🛟", "🎫", "💰", "🎓", "💻", "🍜"]
@@ -62,6 +83,51 @@ export function addDays(iso: string, n: number) {
 export function money(n: number, hidden = false) {
   if (hidden) return "HK$ ••••"
   return `HK$${Math.round(n).toLocaleString("en-HK")}`
+}
+
+export function cashFlowForecast(opts: {
+  startDate: string
+  days: number
+  startingBalance: number
+  dailySpend: number
+  safetyBuffer: number
+  events: ForecastEvent[]
+}): CashFlowForecast {
+  const events = new Map<string, ForecastEvent[]>()
+  for (const event of opts.events) {
+    const list = events.get(event.date) ?? []
+    list.push(event)
+    events.set(event.date, list)
+  }
+
+  let balance = opts.startingBalance
+  const days: ForecastDay[] = []
+  for (let i = 0; i < opts.days; i++) {
+    const date = addDays(opts.startDate, i)
+    const todayEvents = events.get(date) ?? []
+    balance -= opts.dailySpend
+    for (const event of todayEvents) {
+      balance += event.kind === "income" ? event.amount : -event.amount
+    }
+    const event = todayEvents[0]
+    days.push({
+      date,
+      balance,
+      event,
+      status: balance < opts.safetyBuffer ? "danger" : balance < opts.safetyBuffer * 1.5 ? "watch" : "safe",
+    })
+  }
+
+  const lowest = days.reduce(
+    (result, day) => (day.balance < result.balance ? day : result),
+    days[0] ?? { date: opts.startDate, balance: opts.startingBalance, status: "safe" as const },
+  )
+  return {
+    days,
+    lowestBalance: lowest.balance,
+    lowestDate: lowest.date,
+    firstDangerDate: days.find((day) => day.status === "danger")?.date ?? null,
+  }
 }
 
 // Round a spend up to the next multiple of `to`, return the spare change.
@@ -120,10 +186,9 @@ export function categoryTotals(txs: Tx[], today: string) {
 export function monthlySeries(txs: Tx[], today: string) {
   const [y, m] = today.split("-").map(Number)
   const out: { key: string; income: number; expenses: number; saved: number; cumulative: number }[] = []
-  let running = 0
   // cumulative starts from all savings made before the window
   const firstKey = monthKeyOffset(y, m, -5)
-  running = txs.filter((t) => t.kind === "saving" && t.date.slice(0, 7) < firstKey).reduce((s, t) => s + t.amount, 0)
+  let running = txs.filter((t) => t.kind === "saving" && t.date.slice(0, 7) < firstKey).reduce((s, t) => s + t.amount, 0)
   for (let i = -5; i <= 0; i++) {
     const key = monthKeyOffset(y, m, i)
     const inMonth = txs.filter((t) => t.date.startsWith(key))

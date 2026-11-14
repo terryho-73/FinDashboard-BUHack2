@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "mkdir -p $HOME/.bun/bin && ln -sf $(command -v bun) $HOME/.bun/bin/node && PATH=$HOME/.bun/bin:$PATH bun ./node_modules/vite-plus/dist/bin.js dev --host 0.0.0.0",
-    "build": "mkdir -p $HOME/.bun/bin && ln -sf $(command -v bun) $HOME/.bun/bin/node && PATH=$HOME/.bun/bin:$PATH bun ./node_modules/vite-plus/dist/bin.js build",
+    "dev": "NODE_RUNTIME=node node ./node_modules/vite-plus/dist/bin.js dev --host 0.0.0.0",
+    "build": "node ./node_modules/vite-plus/dist/bin.js build",
     "lint": "eslint .",
     "preview": "vite preview"
   },

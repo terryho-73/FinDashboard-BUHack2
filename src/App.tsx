@@ -13,9 +13,12 @@ import {
   Wallet,
   PiggyBank,
   Receipt,
+  AlertTriangle,
+  CheckCircle2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { usePrefs } from "@/lib/prefs"
 import { format } from "@/lib/i18n"
 import {
@@ -29,6 +32,8 @@ import {
   subscriptions,
   summary,
   todayISO,
+  addDays,
+  cashFlowForecast,
   JAR_HEX,
   type Goal,
   type Settings,
@@ -132,6 +137,48 @@ export default function App() {
   const cut = habit
     ? cutBack({ perWeek: skip, unitCost: habit.avg, txs, today, goal: cutGoal })
     : null
+
+  const forecast = useMemo(() => {
+    const totalIncome = txs.filter((t) => t.kind === "income").reduce((n, t) => n + t.amount, 0)
+    const totalOut = txs.filter((t) => t.kind !== "income").reduce((n, t) => n + t.amount, 0)
+    const recentExpense = txs
+      .filter((t) => t.kind === "expense" && t.date >= addDays(today, -30) && t.date <= today && !t.recurring)
+      .reduce((n, t) => n + t.amount, 0)
+    const nextMonth = new Date(`${today.slice(0, 7)}-01T00:00:00`)
+    nextMonth.setMonth(nextMonth.getMonth() + 1)
+    const payday = todayISO(new Date(nextMonth.getFullYear(), nextMonth.getMonth(), 1))
+    const billDate = todayISO(new Date(new Date(today).getFullYear(), new Date(today).getMonth(), 25))
+    const nextBill = billDate > today ? billDate : addDays(billDate, 31)
+    const events = [
+      { date: payday, title: "Payday", amount: settings?.monthly_income ?? 0, kind: "income" as const },
+      { date: nextBill, title: "Rent & bills", amount: (settings?.rent ?? 0) + (settings?.utilities ?? 0), kind: "expense" as const },
+    ].filter((event) => event.amount > 0)
+    return cashFlowForecast({
+      startDate: today,
+      days: 30,
+      startingBalance: Math.max(0, totalIncome - totalOut),
+      dailySpend: recentExpense / 30,
+      safetyBuffer: 1000,
+      events,
+    })
+  }, [settings, today, txs])
+  const [purchaseAmount, setPurchaseAmount] = useState("")
+  const purchase = Math.max(0, Number(purchaseAmount.replace(/,/g, "")) || 0)
+  const purchaseForecast = useMemo(
+    () => purchase > 0
+      ? cashFlowForecast({
+          startDate: today,
+          days: 30,
+          startingBalance: Math.max(0, txs.filter((t) => t.kind === "income").reduce((n, t) => n + t.amount, 0) - txs.filter((t) => t.kind !== "income").reduce((n, t) => n + t.amount, 0)),
+          dailySpend: txs.filter((t) => t.kind === "expense" && t.date >= addDays(today, -30) && t.date <= today && !t.recurring).reduce((n, t) => n + t.amount, 0) / 30,
+          safetyBuffer: 1000,
+          events: [
+            { date: today, title: "Planned purchase", amount: purchase, kind: "expense" as const },
+          ],
+        })
+      : null,
+    [purchase, today, txs],
+  )
 
   const monthLabel = (key: string) =>
     new Date(`${key}-01T00:00:00`).toLocaleString(lang === "zh" ? "zh-HK" : "en", { month: "short" })
@@ -254,6 +301,61 @@ export default function App() {
             </span>
           </div>
         </section>
+
+        <Card className="gap-4 border-primary/20 p-5">
+          <div className="flex items-start gap-3">
+            <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-2xl", forecast.firstDangerDate ? "bg-destructive/15 text-destructive" : "bg-primary/15 text-primary")}>
+              {forecast.firstDangerDate ? <AlertTriangle className="size-5" /> : <CheckCircle2 className="size-5" />}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base font-semibold">{t.forecastTitle}</h2>
+              <p className="mt-1 text-sm">
+                {forecast.firstDangerDate
+                  ? format(t.forecastDanger, { date: forecast.firstDangerDate.slice(5) })
+                  : t.forecastSafe}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">{t.forecastHint}</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-2xl bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">{t.forecastLow}</p>
+              <p className="mt-1 text-lg font-semibold tabular-nums">{money(forecast.lowestBalance, hidden)}</p>
+            </div>
+            <div className="rounded-2xl bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">{t.forecastBuffer}</p>
+              <p className="mt-1 text-lg font-semibold tabular-nums">{money(1000, hidden)}</p>
+            </div>
+          </div>
+          <div className="flex h-12 items-end gap-1" role="img" aria-label={t.forecastTitle}>
+            {forecast.days.map((day) => (
+              <div
+                key={day.date}
+                title={`${day.date}: ${money(day.balance, hidden)}`}
+                className={cn(
+                  "min-w-0 flex-1 rounded-t-sm",
+                  day.status === "danger" ? "bg-destructive" : day.status === "watch" ? "bg-accent-foreground/50" : "bg-primary",
+                )}
+                style={{ height: `${Math.max(10, Math.min(100, (day.balance / Math.max(1, forecast.days[0]?.balance ?? 1)) * 100))}%` }}
+              />
+            ))}
+          </div>
+          <div className="border-t pt-4">
+            <p className="mb-2 text-sm font-medium">{t.forecastPurchase}</p>
+            <div className="grid grid-cols-[1fr_8rem] gap-2">
+              <Input placeholder={t.forecastPurchasePlaceholder} aria-label={t.forecastPurchasePlaceholder} />
+              <Input inputMode="decimal" value={purchaseAmount} onChange={(e) => setPurchaseAmount(e.target.value)} placeholder="680" aria-label={t.forecastImpact} />
+            </div>
+            {purchaseForecast && (
+              <div className={cn("mt-3 rounded-2xl p-3 text-sm", purchaseForecast.firstDangerDate ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary")}>
+                <p className="font-medium">{purchaseForecast.firstDangerDate ? t.forecastBuyDanger : t.forecastBuySafe}</p>
+                {purchaseForecast.firstDangerDate && (
+                  <p className="mt-1 text-xs">{format(t.forecastRecommendation, { amount: Math.ceil(purchase / 14) })}</p>
+                )}
+              </div>
+            )}
+          </div>
+        </Card>
 
         {/* 2. Progress: saving jars (swipeable) */}
         <section className="flex flex-col gap-3">
