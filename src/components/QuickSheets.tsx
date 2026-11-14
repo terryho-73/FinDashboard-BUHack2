@@ -31,11 +31,11 @@ export type Api = {
   saveSettings: (s: Omit<Settings, "id">) => Promise<unknown>
 }
 
-type SheetProps = { open: boolean; onOpenChange: (v: boolean) => void; api: Api }
+export type SheetProps = { open: boolean; onOpenChange: (v: boolean) => void; api: Api }
 
 // ── shared bits ──────────────────────────────────────────────────────────────
 
-function SheetShell({ open, onOpenChange, title, hint, children }: SheetProps & { title: string; hint: string; children: ReactNode }) {
+export function SheetShell({ open, onOpenChange, title, hint, children }: SheetProps & { title: string; hint: string; children: ReactNode }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -55,7 +55,7 @@ function SheetShell({ open, onOpenChange, title, hint, children }: SheetProps & 
   )
 }
 
-function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+export function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button
       type="button"
@@ -73,7 +73,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
   )
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-2 min-w-0">
       <Label className="text-sm font-medium">{label}</Label>
@@ -82,7 +82,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-function ChipRow({ children }: { children: ReactNode }) {
+export function ChipRow({ children }: { children: ReactNode }) {
   return <div className="flex flex-wrap gap-2">{children}</div>
 }
 
