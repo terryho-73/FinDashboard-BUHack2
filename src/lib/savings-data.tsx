@@ -30,6 +30,7 @@ export type SavingsData = {
   loading: boolean
   empty: boolean
   hasDemoData: boolean
+  hasCsvData: boolean
   error: string | null
   status: string
   api: Api
@@ -70,6 +71,7 @@ export function SavingsDataProvider({ children }: { children: ReactNode }) {
   const loading = goalsQ.loading || txQ.loading || settingsQ.loading
   const empty = !loading && goals.length === 0 && txs.length === 0
   const hasDemoData = useMemo(() => txs.some((t) => t.source === "demo"), [txs])
+  const hasCsvData = useMemo(() => txs.some((t) => t.source === "csv"), [txs])
 
   const errors = offline ? [] : ([goalsQ.error, txQ.error, settingsQ.error].filter(Boolean) as string[])
   const error = errors[0] ?? null
@@ -134,6 +136,7 @@ export function SavingsDataProvider({ children }: { children: ReactNode }) {
       loading,
       empty,
       hasDemoData,
+      hasCsvData,
       error,
       status,
       api,
@@ -151,6 +154,7 @@ export function SavingsDataProvider({ children }: { children: ReactNode }) {
       loading,
       empty,
       hasDemoData,
+      hasCsvData,
       error,
       status,
       api,

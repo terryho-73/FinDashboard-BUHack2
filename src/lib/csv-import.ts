@@ -11,9 +11,6 @@
  *   });
  *   analysis.payload // TransactionInput[] ready for useCollection create()
  */
-import Papa from "papaparse";
-// If your tsconfig rejects the default import, use: import * as Papa from "papaparse";
-
 export const KINDS = ["expense", "income", "saving"] as const;
 export type Kind = (typeof KINDS)[number];
 
@@ -209,25 +206,67 @@ export function existingKeysFrom(
 // Parsing
 // ---------------------------------------------------------------------------
 
+function splitCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        cur += ch;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inQuotes = true;
+      continue;
+    }
+    if (ch === ",") {
+      out.push(cur);
+      cur = "";
+      continue;
+    }
+    cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
+/** Lightweight CSV parser (no papaparse dependency — avoids blank app if package is missing). */
 export function parseCsvText(text: string): ParsedCsv {
   const errors: string[] = [];
-  const result = Papa.parse<Record<string, string>>(text.replace(/^\uFEFF/, ""), {
-    header: true,
-    skipEmptyLines: "greedy",
-    transformHeader: (h) => h.trim().toLowerCase().replace(/\s+/g, "_"),
-  });
+  const lines = text
+    .replace(/^\uFEFF/, "")
+    .split(/\r?\n/)
+    .map((l) => l.trimEnd())
+    .filter((l) => l.trim().length > 0);
 
-  for (const err of result.errors) {
-    if (err.type === "Quotes" || err.type === "Delimiter" || err.type === "FieldMismatch") {
-      const where = typeof err.row === "number" ? `Row ${err.row + 1}: ` : "";
-      errors.push(`${where}${err.message}`);
-    }
+  if (lines.length === 0) {
+    return { headers: [], rows: [], errors: ["File is empty"] };
   }
 
-  const headers = (result.meta.fields ?? []).map((h) => h.trim().toLowerCase());
-  const rows: RawCsvRow[] = result.data.map((raw, i) => ({ index: i + 1, raw }));
+  const headerCells = splitCsvLine(lines[0]).map((h) =>
+    h.trim().toLowerCase().replace(/\s+/g, "_"),
+  );
+  const rows: RawCsvRow[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cells = splitCsvLine(lines[i]);
+    const raw: Record<string, string> = {};
+    headerCells.forEach((h, idx) => {
+      raw[h] = (cells[idx] ?? "").trim();
+    });
+    rows.push({ index: i, raw });
+  }
 
-  return { headers, rows, errors };
+  return { headers: headerCells, rows, errors };
 }
 
 // ---------------------------------------------------------------------------
