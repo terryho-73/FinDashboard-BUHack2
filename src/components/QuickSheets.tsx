@@ -20,7 +20,10 @@ import {
   type Tx,
 } from "@/lib/finance"
 import { cn } from "@/lib/utils"
+
 import { downloadOfflineBackup, triggerJsonDownload } from "@/lib/offline-store"
+import { useSavingsData } from "@/lib/savings-data"
+import { exportTransactionsToCsv } from "@/lib/csv-export"
 
 export type Api = {
   goals: Goal[]
@@ -429,12 +432,11 @@ export function SettingsSheet(
     onClear?: () => void
     onSaved?: () => void
     offline?: boolean
-    /** Live transactions from the app — used so export matches what you see on screen. */
-    txs?: Tx[]
   },
 ) {
   const { t } = usePrefs()
   const { api } = props
+  const { txs } = useSavingsData()
   const s = api.settings
   const [vals, setVals] = useState(() => ({
     monthly_income: String(s?.monthly_income ?? ""),
@@ -454,7 +456,7 @@ export function SettingsSheet(
     try {
       // Prefer live UI data so the file matches what is on screen
       const liveGoals = api.goals ?? []
-      const liveTxs = props.txs ?? []
+      const liveTxs = txs ?? []
       const liveSettings = api.settings ? [api.settings] : []
       const hasLive = liveGoals.length > 0 || liveTxs.length > 0 || liveSettings.length > 0
 
@@ -569,6 +571,17 @@ export function SettingsSheet(
       >
         {exportBusy ? "…" : t.exportBackup}
       </Button>
+      {/* Keep your CSV button */}
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full"
+        onClick={() => exportTransactionsToCsv(txs)}
+      >
+        {t.exportCsv}
+      </Button>
+
+      {/* Keep your groupmate's clear button */}
       {props.onClear && (
         <Button
           type="button"
@@ -581,6 +594,8 @@ export function SettingsSheet(
           {t.clearAll}
         </Button>
       )}
+
+      {/* Keep only ONE error message */}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     </SheetShell>
   )
