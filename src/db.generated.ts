@@ -13,6 +13,7 @@ export const goalsSchema = z.object({
   target: z.number(),
   emoji: z.string(),
   color: z.enum(["rose", "amber", "sky", "emerald", "violet"]),
+  target_date: z.string(),
 })
 export type Goals = z.infer<typeof goalsSchema>
 

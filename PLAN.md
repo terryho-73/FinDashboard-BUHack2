@@ -1,10 +1,13 @@
 # PocketGoals HK — Implementation Plan
 
 **Audience:** Contributors, reviewers, and coding agents building this repository.  
-**Status:** Application code not scaffolded; this document is the authoritative build specification.  
-**Companion:** [`README.md`](README.md) for onboarding summary; this file contains execution detail.
+**Status:** **Active app** in repo root — React + TypeScript, Vite+, collections API, dev persistence via `@omg-dev`.  
+**UI product name:** *Savings Jars HK* (bilingual). **Spec name:** PocketGoals HK (香港青年儲蓄助手).  
+**Companion:** [`README.md`](README.md) for onboarding; [`AGENTS.md`](AGENTS.md) for UI/design-system rules in this stack.
 
-Treat every feature as **proposed until implemented**. Do not claim tests passed, APIs work, or integrations exist unless verified locally.
+Treat features as **implemented only when verifiable in the repo**; sections marked **Target** describe the next evolution (optional custom backend).
+
+**Estimated progress (demo track):** ~**60%** of a competition-ready product; ~**35%** of the original full-stack PLAN MVP (auth, CSV, multi-account ledger, PostgreSQL).
 
 ---
 
@@ -12,762 +15,560 @@ Treat every feature as **proposed until implemented**. Do not claim tests passed
 
 ### 1.1 Purpose
 
-PocketGoals HK (香港青年儲蓄助手) is a bilingual, mobile-first savings dashboard for university students, fresh graduates, and young professionals in Hong Kong.
-
-It answers:
+PocketGoals HK helps Hong Kong students and young professionals answer:
 
 1. How much have I set aside?
 2. How much can I spend before my next income arrives?
 3. What small changes would help me reach my goals sooner?
 
-### 1.2 Audience
-
-- University students and fresh graduates first.
-- Income patterns: allowances, part-time, scholarships, salary (regular or irregular).
-- Living situations: family, halls, rented—no fixed monthly payday required.
-
-### 1.3 Product boundaries
+### 1.2 Boundaries
 
 | In scope | Out of scope (initially) |
 |----------|---------------------------|
-| Personal finance tracker | Bank or wallet holding customer funds |
-| Budgeting and savings planner | Real money transfers (Octopus, FPS, banks) |
-| Virtual goal allocations | Investment advice or trading |
-| Optional AI explanations (post-MVP) | Auto-sync every HK financial account |
+| Personal finance tracker | Holding or moving real customer funds |
+| Virtual saving jars / buckets | Bank transfers (Octopus, FPS, banks) |
+| Budget hints and insights | Investment advice |
+| Optional AI later | Auto-sync every HK account |
 
-**Recording savings ≠ moving money.** MVP uses virtual buckets and simulated rules only.
+**Recording savings ≠ moving money.**
 
-### 1.4 Tone and UX principles
+### 1.3 Tone and UX
 
-- Encouragement over guilt (e.g. 儲少少，都係進步).
-- Touch targets ≥ 44×44 CSS px; keyboard navigation; accessible icon names.
-- Do not rely on color alone for status; chart text summaries; `prefers-reduced-motion`.
-- Loading, empty, error, success, validation (preserve form data on error).
-- Mobile bottom nav must not cover content.
+Encouragement over guilt (儲少少，都係進步); touch targets ≥ 44px; chart/accessibility text; `prefers-reduced-motion`; preserve form state on errors; bottom actions must not cover content.
 
-### 1.5 Defaults
+### 1.4 Defaults
 
-- Currency: **HKD** (MVP totals reject unsupported currencies).
-- Timezone: **Asia/Hong_Kong**.
-- Locales: **English** + **Traditional Chinese** (`en-HK`, `zh-HK`).
+- **HKD**, timezone **Asia/Hong_Kong**
+- **English + Traditional Chinese** (`src/lib/i18n.ts`, `en` / `zh`)
 
 ---
 
-## 2. Technology stack (mandatory)
+## 2. Technology stack (current — mandatory for this repo)
 
 | Layer | Technology | Notes |
 |-------|------------|--------|
-| Language | **TypeScript** | App code in `.ts` / `lang="ts"`; strict mode recommended |
-| UI | Vue 3, Composition API, `<script setup>` | |
-| Build | Vite | `vite.config.ts` when using TypeScript |
-| Styling | Bootstrap 5.3 CSS + custom tokens | **No Bootstrap JS** in Vue-controlled widgets |
-| Routing / state | Vue Router, Pinia | |
-| i18n | Vue I18n | |
-| Charts | Chart.js | Text summaries required |
-| CSV | Papa Parse | Client preview; server revalidation |
-| API client | Shared `apiRequest` helper | Credentials + CSRF header |
-| Backend | Node.js, Express, ESM | |
-| DB | PostgreSQL, `pg`, SQL migrations | Parameterized queries |
-| Validation | Zod | Request bodies |
-| Shared logic | `shared/*.ts` pure functions | Imported by client (bundled) and server |
-| Tests | Vitest (unit), Playwright (e2e), Supertest (HTTP) | |
+| Language | **TypeScript** | `.ts` / `.tsx` |
+| UI | **React 19** | Function components |
+| Build | **Vite+** (`vite-plus`) | `vite.config.ts`, `@omg-dev/vite-plugin` |
+| Routing | **TanStack Router** | File routes under `src/routes/` |
+| Styling | **Tailwind v4 + shadcn** | See `AGENTS.md`; semantic tokens in `src/index.css` |
+| Persistence | **`@omg-dev/schema` + SDK** | `schema.ts`; `useCollection` → `/api/*` |
+| DB (dev) | **SQLite via Drizzle proxy** | `server/db.ts`, `@omg-dev/server` |
+| Icons | **lucide-react** | |
+| Package manager | **npm** (lockfile tracked) | Pin **`shadcn` to `4.23.0`** — never `1.0.0` (wrong package) |
 
-**Do not introduce** (unless explicitly approved): React, Next.js, Tailwind, microservices, vector DB, multi-agent AI frameworks.
+**Dependency rule:** Do **not** run `npm audit fix --force` — it downgrades `shadcn` and breaks `shadcn/tailwind.css`.
 
-### TypeScript conventions
+**Do not introduce** (unless explicitly approved): a second UI framework, Next.js, duplicate routers, microservices, multi-agent AI.
 
-- **Client:** Run `npm create vue@latest client` with **TypeScript: Yes**. Use `<script setup lang="ts">` in SFCs. Prefer typed Pinia stores and typed `apiRequest` responses.
-- **Server:** Add `typescript`, `tsx` (or `ts-node` + ESM loader), and `@types/*` for Express. Entry points under `server/src/**/*.ts`; compile or run via `tsx` in development.
-- **Shared:** Financial modules (`money`, `safeToSpend`, `roundUp`) are typed pure functions; export explicit types for minor-unit amounts (`type MoneyMinor = number` branded or documented).
-- **Validation:** Define Zod schemas once; infer TypeScript types with `z.infer<typeof Schema>` for API DTOs.
-- **Money types:** Use `number` minor units only after `Number.isSafeInteger` guards; avoid `any` in ledger and allocation code.
-- **Locales:** JSON locale files stay `.json`; no need to type every UI string in the first milestone.
+### Phase B — optional later (not current default)
 
-### Bootstrap + Vue
-
-- Vue owns modal visibility, dropdowns, form submit.
-- Bootstrap supplies layout/utilities CSS only.
-- Optional later: BootstrapVueNext—not in MVP unless team agrees.
+Express + PostgreSQL + `shared/` money modules per §8.3. Use only if rubric or production requires a self-owned API. See §14 milestone **B3**.
 
 ---
 
-## 3. Architecture
+## 3. Architecture (current)
 
 ```text
-┌─────────────────────────────────────┐
-│ Vue frontend                        │
-│ Bootstrap CSS / Pinia / Router / I18n │
-└──────────────────┬──────────────────┘
-                   │ HTTPS / JSON
-                   ▼
-┌─────────────────────────────────────┐
-│ Express API                         │
-│ Auth · validation · rate limits     │
-│ Financial services · imports · AI   │
-└──────────┬─────────────────┬────────┘
-           ▼                 ▼
-    PostgreSQL         External adapters
-                       (HKMA, AI provider)
+┌─────────────────────────────────────────────┐
+│ React SPA (src/App.tsx, QuickSheets, Charts) │
+│ TanStack Router · PrefsProvider (i18n/theme) │
+└────────────────────┬────────────────────────┘
+                     │ JSON /api/*
+                     ▼
+┌─────────────────────────────────────────────┐
+│ @omg-dev server (Vite dev plugin)           │
+│ Collections: goals, transactions, settings  │
+└────────────────────┬────────────────────────┘
+                     ▼
+              SQLite (dev persistence)
 ```
 
 ### Rules
 
-1. No SQL or business rules inside Vue SFCs beyond display formatting.
-2. Financial formulas live in `shared/`; server recalculates for persisted data.
-3. External APIs only through adapters (validate, cache, stale handling).
-4. AI calls allowlisted application functions—never raw SQL or arbitrary URLs.
-5. **Demo mode** and **account mode** are separate code paths; never silent fallback to demo on API failure.
+1. **Domain logic** lives in `src/lib/finance.ts` (calculations) and `schema.ts` (persistence shape).
+2. **Do not** hand-edit vendored files in `src/components/ui/` (see `AGENTS.md`).
+3. **Financial display** uses `money()` + `hidden` from `usePrefs()` — privacy must cover visible and assistive text.
+4. **Seed demo** via `src/lib/seed.ts` — explicit user action, not silent fallback.
+5. Optional **Phase B**: server recomputes safe-to-spend; client does not own authoritative ledger.
 
-### Development modes
+### Run locally
 
-| Mode | `VITE_DEMO_MODE` | Behavior |
-|------|------------------|----------|
-| Demo | `true` | `client/src/mocks/*`, visible “Demo data” label, no credentials |
-| Account | `false` | Session cookies, PostgreSQL, ownership on every row |
+```bash
+npm install
+npm run dev    # http://localhost:5173
+```
+
+Pin `shadcn@4.23.0` before install if `package.json` was altered by audit.
 
 ---
 
-## 4. Repository layout (target)
-
-Create this structure at repo root (names may use `pocketgoals-hk/` as monorepo root = BUHack2 root).
+## 4. Repository layout (actual)
 
 ```text
+BUHack2/
 ├── README.md
 ├── PLAN.md
-├── .gitignore
-├── docs/                          # Split when PLAN grows; optional at M1
-│   ├── api-contract.md
-│   ├── data-model.md
-│   ├── financial-rules.md
-│   ├── threat-model.md
-│   └── ai-evaluation.md
-├── client/
-├── server/
-├── shared/
-└── tests/
-    ├── unit/
-    └── e2e/
-```
-
-### 4.1 Client (`client/`)
-
-```text
-client/
+├── AGENTS.md
 ├── package.json
-├── .env.example
+├── package-lock.json
+├── schema.ts              # @omg-dev collection definitions
 ├── vite.config.ts
-├── tsconfig.json
-├── tsconfig.app.json
 ├── index.html
-└── src/
-    ├── main.ts
-    ├── App.vue
-    ├── assets/styles/{tokens.css,main.css}
-    ├── router/index.ts
-    ├── layouts/{AppLayout,AuthLayout}.vue
-    ├── views/
-    │   DashboardView, GoalsView, GoalDetailView, TransactionsView,
-    │   ImportView, BudgetView, InsightsView, CoachView, SettingsView,
-    │   LoginView, OnboardingView
-    ├── components/
-    │   common/{MoneyValue,AppModal,EmptyState,ErrorNotice}.vue
-    │   navigation/{AppHeader,SidebarNav,BottomNav}.vue
-    │   dashboard/{SavingsSummary,SafeToSpendCard,CashFlowChart,CategoryChart}.vue
-    │   goals/{GoalCard,GoalForm,AllocationForm}.vue
-    │   transactions/{TransactionForm,TransactionList,ImportPreview}.vue
-    ├── stores/{auth,preferences,goals,transactions}.ts
-    ├── composables/{useMoney,usePrivacy}.ts
-    ├── services/{api,goals.api,transactions.api,coach.api}.ts
-    ├── types/                    # API DTOs, domain enums
-    ├── locales/{en-HK.json,zh-HK.json}
-    └── mocks/{seed.ts,repository.ts}
+├── server/
+│   └── db.ts              # Drizzle read client for dev
+├── src/
+│   ├── main.tsx
+│   ├── App.tsx            # Main dashboard (single route)
+│   ├── index.css
+│   ├── routes/            # TanStack file routes (__root, index)
+│   ├── components/
+│   │   ├── Charts.tsx
+│   │   ├── QuickSheets.tsx
+│   │   └── ui/            # shadcn + vendored primitives
+│   └── lib/
+│       ├── finance.ts     # Types, summary, insights, cut-back
+│       ├── i18n.ts
+│       ├── prefs.tsx
+│       ├── seed.ts
+│       └── utils.ts
+├── public/                # favicon, PWA icons
+└── docs/                  # optional split later
 ```
-
-### 4.2 Server (`server/`)
-
-```text
-server/
-├── package.json
-├── .env.example
-├── migrations/001_initial_schema.sql
-├── tsconfig.json
-├── scripts/{migrate.ts,seed.ts}
-└── src/
-    ├── app.ts, server.ts
-    ├── config/env.ts
-    ├── db/pool.ts
-    ├── middleware/{authenticate,csrf,validate,errorHandler}.ts
-    ├── modules/{auth,accounts,transactions,goals,budgets,imports,insights}/
-    ├── integrations/{hkma.adapter,banking.adapter}.ts
-    ├── ai/{provider,coach.service,tools,policies}.ts
-    └── tests/ (or top-level server/tests)
-```
-
-**Per-module pattern** (combine controller+service in early milestones if needed):
-
-```text
-goals/
-├── goals.routes.ts
-├── goals.controller.ts
-├── goals.service.ts
-├── goals.repository.ts
-└── goals.schema.ts
-```
-
-### 4.3 Shared (`shared/`)
-
-| File | Responsibility |
-|------|----------------|
-| `money.ts` | minor units parse/format, safe integer checks |
-| `safeToSpend.ts` | discretionary balance + daily allowance |
-| `roundUp.ts` | virtual round-up suggestion |
-| `schemas.ts` | Shared Zod schemas and inferred types |
 
 ---
 
-## 5. UI specification
+## 5. UI specification (implemented vs target)
 
-### 5.1 Desktop dashboard (wireframe)
+### 5.1 Implemented (M1+)
 
-```text
-┌────────────────────────────────────────────────────────────────┐
-│ PocketGoals HK             EN / 繁    Theme    Hide $    Profile │
-├────────────┬───────────────────────────────────────────────────┤
-│ Dashboard  │ Set Aside │ Safe-to-Spend │ data freshness          │
-│ Goals      │ Goal cards + progress bars                         │
-│ Activity   │ Cash-flow chart │ Category chart                     │
-│ Budget     │ Quick actions │ Recent transactions                │
-│ Insights   │                                                   │
-│ Settings   │                                                   │
-└────────────┴───────────────────────────────────────────────────┘
-```
+| Area | Implementation |
+|------|----------------|
+| Header | EN/繁, hide balances, dark mode, settings |
+| Hero | Total saved, safe today/week, streak, left this month |
+| Forecast | 30-day cash-flow bar, purchase “what-if” |
+| Jars | Horizontal cards, progress, top-up, delete |
+| Charts | Month flow, 6-month net savings, categories |
+| Recent txs | List + delete |
+| Insights | Invisible spend, subscriptions, cut-back slider |
+| Actions | Bottom: log expense, top up, payday split |
+| Sheets | Expense, top-up, payday, new jar, settings |
 
-### 5.2 Mobile order
+### 5.2 Mobile content order
 
-1. Compact header  
-2. Set-aside + safe-to-spend  
-3. Freshness / missing-data warning  
-4. Horizontal goal cards  
-5. Quick actions  
-6. Spending chart  
-7. Recent transactions  
-8. Bottom nav: `Home | Goals | + Add | Activity | More`
+Matches original intent: summary → jars → charts → recent → insights → fixed quick actions.
 
-### 5.3 Bilingual labels (minimum set)
+### 5.3 Bilingual copy
 
-| English | Traditional Chinese |
-|---------|---------------------|
-| Saving Goals | 儲蓄目標 |
-| Set Aside | 已預留儲蓄 |
-| Estimated Safe-to-Spend | 預計可用金額 |
-| Log Expense | 記低開支 |
-| Allocate to Goal | 為目標預留金額 |
-| Hide Amounts | 隱藏金額 |
-| Small steps still count | 儲少少，都係進步 |
+Maintained in `src/lib/i18n.ts` (`dict.en` / `dict.zh`). Extend both when adding strings.
 
-### 5.4 Privacy mode
+### 5.4 Privacy
 
-- Central `MoneyValue.vue` + `usePrivacy` composable.
-- Hide amounts in cards, lists, charts, tooltips, **and accessible names** (no blur-only).
+`PrefsProvider` `hidden` flag; all amounts via `money(n, hidden)`.
+
+### 5.5 Target UI gaps
+
+- Dedicated routes: Goals list, Activity, Import, Onboarding
+- Explicit **“Demo data”** banner when using seed
+- CSV import screen
+- Export download
 
 ---
 
 ## 6. Data model
 
-### 6.1 MVP entities
+### 6.1 Implemented collections (`schema.ts`)
 
-| Table | Key fields |
-|-------|------------|
-| `users` | `id`, `email`, `password_hash`, `locale`, `timezone`, `created_at` |
-| `accounts` | `user_id`, `name`, `type`, `currency`, `opening_balance_minor`, `balance_as_of` |
-| `transactions` | `user_id`, `type`, `amount_minor`, `currency`, `occurred_at`, `category_id`, `description`, `payment_method` |
-| `transaction_entries` | `transaction_id`, `account_id`, `signed_amount_minor` (double-entry) |
-| `goals` | `user_id`, `name`, `target_minor`, `target_date`, `status` |
-| `goal_allocations` | `goal_id`, `account_id`, `amount_minor`, `direction`, `created_at` |
-| `budget_periods` | `user_id`, `start_date`, `end_date`, `savings_target_minor` |
-| `obligations` | `user_id`, `amount_minor`, `due_date`, `status`, `kind` |
-| `import_batches` | `user_id`, `source`, `status`, `created_at` |
-| `import_rows` | `batch_id`, `normalized_data`, `validation_errors`, `fingerprint` |
+| Collection | Fields (summary) |
+|------------|------------------|
+| **goals** | `name`, `target`, `emoji`, `color` |
+| **transactions** | `title`, `amount`, `kind` (`expense` \| `income` \| `saving`), `category`, `channel`, `date`, `goal_id`, `recurring`, `source` |
+| **settings** | `monthly_income`, `rent`, `utilities`, `mpf`, `save_pct`, `round_to`, `roundup_on` |
 
-### 6.2 Post-MVP entities (design only until needed)
+**Saved amount per jar** = sum of `saving` transactions with matching `goal_id` (not a separate balance column).
 
-`saving_rules`, `subscription_candidates`, `group_challenges`, `challenge_members`, `ai_suggestions`, `consent_records`, `audit_events`, `rate_snapshots`.
+**API paths:** `/api/goals`, `/api/transactions`, `/api/settings` (`useCollection` in `App.tsx`).
 
-### 6.3 Money rules
+### 6.2 Target model (Phase B — multi-user ledger)
 
-- Store **integer minor units** (HK$38.50 → `3850`).
-- Validate `Number.isSafeInteger` on inputs.
-- Currency explicit on every row; reject mixed-currency MVP totals.
+Users, accounts, double-entry transactions, goal_allocations, budget_periods, import_batches — see prior relational design if migrating to PostgreSQL. Map current three collections first, then add accounts/transfers.
 
-### 6.4 Transaction semantics
+### 6.3 Money (current vs target)
 
-| Type | Meaning |
-|------|---------|
-| `income` | Money in (take-home if user enters net—do not double-subtract deductions) |
-| `expense` | Spending |
-| `refund` | Reverses spending effect |
-| `transfer` | Between **owned** tracked accounts (e.g. bank → Octopus top-up) |
-| `card_repayment` | Paying card bill—not a second expense |
-| `goal_allocation` | Virtual bucket move—not income, not bank transfer |
-
-**Payment method does not determine type** (Octopus, FPS, bank_transfer are metadata).
-
-### 6.5 Goal allocations
-
-- Cannot exceed account unallocated eligible balance.
-- Use DB transaction + row locks to prevent concurrent double allocation.
+| | Current | Target (Phase B) |
+|---|---------|------------------|
+| Storage | HKD **whole dollars** (numbers) | **Minor units** (integer cents) |
+| Types | `expense`, `income`, `saving` | + refund, transfer, card_repayment, allocation |
+| Channel | Metadata (`octopus`, `fps`, …) | Does not imply transaction type |
 
 ---
 
 ## 7. Financial calculations
 
-### 7.1 Safe-to-spend (MVP)
+### 7.1 Implemented (`finance.ts`)
 
-```text
-discretionary
-  = eligible_liquid_balance
-    − protected_goal_allocations
-    − unpaid_obligations (planning period)
-    − savings_still_to_reserve
-    − safety_buffer
+- **`summary()`** — monthly income, fixed (rent+utilities+mpf), savings target %, expenses, per-day and per-week “safe” remainder for the calendar month.
+- **`spareChange()` / round-up** on expense sheet when `roundup_on` (virtual `saving` tx).
+- **`savingsStreak()`**, **`categoryTotals()`**, **`monthlySeries()`**, **`invisibleSpend()`**, **`subscriptions()`**, **`cutBack()`**, **`cashFlowForecast()`** (in App forecast cards).
+- **`goalSaved()`** — jar progress from transactions.
 
-daily_allowance = max(0, discretionary) ÷ remaining_calendar_days_in_period
-```
+Label outputs as **estimates**, not guarantees.
 
-- Round displayed daily allowance **down** to nearest cent.
-- Show assumptions, stale/missing account warnings, shortfall if negative underlying.
-- Do not subtract expenses already in balances; do not count future salary; not credit limits.
-- Irregular income: user-chosen planning period end.
-- Label as estimate, not guarantee.
+### 7.2 Target safe-to-spend (Phase B)
 
-### 7.2 Round-up (virtual)
+Balance-based discretionary allowance over a user-defined planning period, minor units, explicit assumptions and missing-data warnings — port from `summary()` incrementally, with unit tests.
+
+### 7.3 Round-up formula (target reference)
 
 ```text
 roundUp = (increment - (amount % increment)) % increment
 ```
 
-Default increment HK$10 → minor `1000`. Implement in `shared/roundUp.ts` with unit tests (HK$38 → 200 minor, HK$40 → 0).
-
-### 7.3 Cut-back simulator (Milestone 4 / v2)
-
-Deterministic: state time assumptions; use `simulateCutBack` service; never label 4-week total as “exact month”.
+Current app uses `spareChange()` on decimal HKD; align with minor units when hardening.
 
 ---
 
-## 8. REST API
+## 8. API
 
-Base path: `/api`. Session auth; derive `user_id` from session only.
+### 8.1 Implemented (collections)
 
-### 8.1 Auth and profile
+CRUD via `@omg-dev/sdk` `useCollection` — create, update, remove, list. No custom Express routes in repo.
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| POST | `/auth/register` | Register |
-| POST | `/auth/login` | Session start |
-| POST | `/auth/logout` | Session end |
-| GET | `/me` | Current user |
-| PATCH | `/me/preferences` | Locale, theme, privacy defaults |
-
-### 8.2 Core finance
-
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/dashboard` | Aggregated dashboard |
-| GET/POST | `/accounts` | List / create |
-| GET/POST/PATCH/DELETE | `/transactions` | CRUD + filters + pagination |
-| GET/POST/PATCH | `/goals` | Goals CRUD |
-| POST | `/goals/:id/allocations` | Allocate or release |
-| GET | `/budget/safe-to-spend` | Current allowance + meta |
-| POST | `/imports/preview` | Validate upload |
-| POST | `/imports/:id/confirm` | Idempotent commit |
-| GET | `/exports/transactions` | Export user data |
-
-### 8.3 Optional (Milestone 5+)
-
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/reference/exchange-rates` | HKMA adapter |
-| GET | `/reference/deposit-rates` | Curated products |
-| GET | `/insights/subscriptions` | Recurring candidates |
-| POST | `/simulations/cut-back` | Scenario |
-| POST | `/coach/messages` | AI coach |
-| POST | `/coach/suggestions/:id/confirm` | Confirmed draft write |
-
-### 8.4 Response envelopes
-
-Success:
+### 8.2 Target envelopes (Phase B)
 
 ```json
-{
-  "data": { },
-  "meta": {
-    "timezone": "Asia/Hong_Kong",
-    "isEstimate": true,
-    "dataStatus": "complete"
-  }
-}
+{ "data": { }, "meta": { "timezone": "Asia/Hong_Kong", "isEstimate": true } }
 ```
-
-Error:
 
 ```json
-{
-  "error": {
-    "code": "INVALID_AMOUNT",
-    "message": "Amount must be greater than zero.",
-    "fields": { "amountMinor": "Enter a positive amount." }
-  }
-}
+{ "error": { "code": "INVALID_AMOUNT", "message": "...", "fields": {} } }
 ```
 
-### 8.5 API requirements
+### 8.3 Phase B REST sketch
 
-- Ownership check on every `account_id`, `goal_id`, `transaction_id`.
-- Zod validate all bodies; stable `error.code` for i18n.
-- Paginate transaction lists.
-- Idempotency keys: imports confirm, goal allocations.
-- CSRF token on session mutations (header `X-CSRF-Token`).
+Auth (`/api/auth/*`), `/api/dashboard`, paginated `/api/transactions`, `/api/goals/:id/allocations`, `/api/imports/*`, `/api/exports/*`. Session auth, ownership on every row, Zod validation, CSRF on mutations.
 
 ---
 
-## 9. CSV import
+## 9. CSV import (target)
 
-### 9.1 Canonical template
+Canonical CSV template, Papa Parse preview, server revalidation, idempotent confirm — **not implemented** (`source: "csv"` reserved on transactions).
 
-```csv
-date,description,type,amount,currency,account,payment_method,category
-2026-10-01,Lunch,expense,38.00,HKD,Octopus,octopus,Food
-2026-10-02,Part-time salary,income,2000.00,HKD,Bank,bank_transfer,Income
-```
+---
 
-### 9.2 Pipeline
+## 10. Development
+
+### 10.1 Scripts (`package.json`)
+
+| Script | Purpose |
+|--------|---------|
+| `npm run dev` | Dev server + platform API |
+| `npm run build` | Production build |
+| `npm run lint` | ESLint |
+| `npm run preview` | Preview `dist/` |
+
+### 10.2 Critical dependencies
+
+- `shadcn`: **4.23.0** (provides `shadcn/tailwind.css`)
+- Overrides: `minimatch` (^10.2.1) for audit hygiene — avoid `npm audit fix --force`
+
+### 10.3 UI changes
+
+Follow **`AGENTS.md`**: semantic Tailwind tokens only; use `src/components/ui/*`; new routes = new files under `src/routes/`.
+
+---
+
+## 11. Security and privacy (targets)
+
+| Area | Current | Target |
+|------|---------|--------|
+| Auth | None (single-tenant dev) | Sessions + `@omg-dev/auth` or Phase B |
+| Multi-user isolation | N/A | `user_id` on all rows |
+| Export / delete | Clear all in settings | Export file + account deletion policy |
+| HTTPS | Dev only | Production host |
+| Secrets | None in client | Never in `VITE_*` |
+
+Privacy mode implemented client-side; backend must not leak amounts in APIs when hidden.
+
+---
+
+## 12. External integrations (future)
+
+HKMA reference rates, AI coach via `@omg-dev/ai`, bank Open API — **not MVP**. Manual entry + optional CSV first. Octopus auto-sync: unsupported until verified.
+
+---
+
+## 13. AI coach (future)
+
+Read-only tools over app data (`getSpendingSummary`, `getGoalProgress`, `getSafeToSpend`, `simulateCutBack`); no transfers or unrestricted SQL. Optional after core MVP stable.
+
+---
+
+## 14. Milestones and progress
+
+### M0 — Tooling ✅ Done
+
+Vite+, React, TS, TanStack Router, Tailwind/shadcn, ESLint, `schema.ts`, dev server.
+
+### M1 — Dashboard UX ✅ Mostly done
+
+Single-page dashboard, sheets, charts, EN/繁, dark, hide amounts, demo seed, bottom actions.
+
+**Gaps:** multi-route nav; demo banner; rename consistency PocketGoals vs Savings Jars.
+
+### M2 — Financial logic 🟡 Partial
+
+`finance.ts` powers UI; no Vitest suite; simplified monthly model (not full ledger).
+
+**Next:** unit tests for `spareChange`, `summary`, `cutBack`; document assumptions in UI copy.
+
+### M3 — Persistence 🟡 Partial (platform)
+
+Collections persist in dev via omg/SQLite. No auth, no Postgres, no export.
+
+**Next:** enable platform auth if available; JSON/CSV export; hosted deploy docs.
+
+### M4 — Import & hardening ⬜ Not done
+
+CSV UI, duplicate review, data export endpoint.
+
+**Partial credit:** insights (subscriptions, invisible spend, cut-back) already in UI.
+
+### M5–M6 — Integrations & production ⬜ Not done
+
+HKMA, AI coach, a11y audit, threat model, monitoring.
+
+### Phase B3 — Custom Express + PostgreSQL (optional)
+
+Only if required: add `server/src` Express app, replace `useCollection` with typed `fetch` client, migrate schema, auth, ownership. Keep React UI; port `finance.ts` to `shared/` for server parity.
+
+---
+
+## 15. Testing (target)
+
+| Layer | Status |
+|-------|--------|
+| `npm run lint` | Available |
+| Vitest on `finance.ts` | Not set up |
+| Playwright E2E | Not set up |
+| Security / import tests | Phase B |
+
+**E2E acceptance (demo):** seed → log expense → top-up jar → payday → toggle 繁 → hide amounts → clear all.
+
+---
+
+## 16. Contributor workflow
+
+1. Read `README.md`, this `PLAN.md`, and `AGENTS.md` before UI work.
+2. Pick a milestone gap (§14); one PR = one concern.
+3. Update **both** `dict.en` and `dict.zh` for new copy.
+4. Do not run `npm audit fix --force`.
+5. PR notes: how to run `npm run dev`, what remains incomplete.
+
+**Review focus:** transaction `kind` correctness, privacy + a11y, no dead buttons, `shadcn` version pinned.
+
+---
+
+## 17. Assistant brief
 
 ```text
-Select file → source/account → column map → parse → preview
-→ flag invalid/duplicate → user confirm → server validate → commit batch
+Build PocketGoals HK / Savings Jars HK per PLAN.md.
+Stack: React 19 + TypeScript + Vite+ + TanStack Router + shadcn/Tailwind + @omg-dev collections.
+Data: schema.ts (goals, transactions, settings). Logic: src/lib/finance.ts.
+Follow AGENTS.md for UI. Pin shadcn@4.23.0. No npm audit fix --force.
+Virtual savings only — no real money movement.
+Implement §14 gaps; state what is target vs done.
 ```
 
-### 9.3 Requirements
+---
 
-- User must resolve ambiguous dates before import.
-- Decimal amounts → minor units without float error.
-- File size + row limits; UTF-8 / encoding errors surfaced.
-- Duplicates: heuristic only; allow legitimate repeats.
-- Idempotent confirm; do not retain raw files longer than needed.
-- Neutralize spreadsheet formula injection on export.
+## 18. Roadmap
+
+| Version | Status |
+|---------|--------|
+| **Current** | Jars, txs, budget summary, forecast, round-up, insights, bilingual, privacy |
+| **v1.1** | CSV import, export, demo label, Vitest on finance |
+| **v1.2** | Auth + multi-user (platform or Phase B) |
+| **v2** | Streak polish, group challenges, HKMA widget, AI coach |
+| **v3** | Bank integrations (conditional) |
 
 ---
 
-## 10. Frontend integration
+## 19. Release direction
 
-### 10.1 `client/src/services/api.ts`
+> **Reliable mobile-first savings jars app** with manual tracking, virtual allocations, transparent monthly budgeting, and HK-specific payment channels — persisted in dev via collections API, ready to harden with auth, export, and optional PostgreSQL backend.
 
-- `API_BASE = import.meta.env.VITE_API_BASE_URL || '/api'`
-- `credentials: 'include'`
-- Parse JSON errors; attach `status`, `code` on thrown Error.
-
-### 10.2 Environment
-
-```env
-# client/.env.example
-VITE_API_BASE_URL=/api
-VITE_DEMO_MODE=true
-```
-
-```env
-# server/.env.example
-PORT=3000
-DATABASE_URL=postgresql://user:password@localhost:5432/pocketgoals
-SESSION_SECRET=
-AI_ENABLED=false
-AI_API_KEY=
-AI_MODEL=
-```
-
-Never put secrets in `VITE_*`.
-
-### 10.3 `main.ts` bootstrap
-
-- Pinia, Router, I18n before mount.
-- Import Bootstrap CSS + icons + `main.css`.
-- Do not import `bootstrap/dist/js/bootstrap.bundle`.
+Bank aggregation and real money movement remain **out of scope** until explicitly designed and approved.
 
 ---
 
-## 11. Security and privacy
+## 20. Five-person team split (suggested ownership)
 
-| Area | Requirement |
-|------|-------------|
-| Auth | Hashed passwords, secure session cookies, session expiry |
-| CSRF | State-changing routes |
-| Rate limit | Login, recovery, AI |
-| SQL | Parameterized only |
-| Logging | No transaction descriptions, passwords, or full AI prompts with PII |
-| HTTPS | Production |
-| Demo data | Separate from production DB |
-| Deletion | Export + account deletion workflow in MVP |
+Use this as the default work breakdown for BUHack2. One person = **one primary stream**; everyone reviews PRs that touch `schema.ts`, `finance.ts`, or `vite.config.ts`.
 
-Group challenges (v2): never send private balances to client for CSS hiding.
+**Integration rule:** merge to `main` only when `npm run dev`, `npm run build`, and `npm run lint` pass. Do not run `npm audit fix --force`.
 
----
+| Person | Role | Primary folders / files | Deliverables (MVP) | Depends on |
+|--------|------|---------------------------|--------------------|------------|
+| **P1 — Platform & data** | Backend / persistence | `schema.ts`, `vite.config.ts`, `package.json`, `server/local-*.ts`, `src/db.generated.ts`, `functions/` | ✅ Dev persistence via `server/vite-local-api-plugin` + `.data/pocketgoals.sqlite`; README `/api/*`; `GET /api/export` backup; deploy notes (static build + Phase B for prod API) | — |
+| **P2 — Dashboard & navigation** | Core UI shell | `src/App.tsx`, `src/components/Charts.tsx`, `src/routes/*`, `index.html`, `public/icons/*` | Multi-section polish; optional TanStack routes (Activity, Goals list); demo-data banner; loading/empty/error states; piggy icon/branding consistency | P1 for live collections |
+| **P3 — Forms & money entry** | Input flows | `src/components/QuickSheets.tsx`, `src/components/ui/sheet.tsx`, related `ui/*` | Expense / top-up / payday / new jar / settings flows; validation & busy states; round-up UX; delete confirmations; no dead buttons | P1, P4 for field rules |
+| **P4 — Finance & insights** | Domain logic | `src/lib/finance.ts`, `src/lib/seed.ts` | Correct `summary`, forecast, cut-back, streak; Vitest on key functions; UI copy for assumptions (estimate, not guarantee); category/channel enums aligned with `schema.ts` | P1 schema enums |
+| **P5 — Language, quality & release** | i18n, a11y, QA | `src/lib/i18n.ts`, `src/lib/prefs.tsx`, `README.md`, `PLAN.md` (checklists), ESLint/Playwright setup | Full EN + 繁 for new strings; privacy mode on charts/tooltips/a11y labels; smoke E2E script for demo flow; final README + submission/demo script | P2–P4 UI stable |
 
-## 12. External integrations
-
-| Integration | MVP | Approach |
-|-------------|-----|----------|
-| HKMA public rates | Optional M5 | `hkma.adapter.ts`, cache, stale flag, tests |
-| AI provider | Optional M5 | Server-only adapter |
-| Bank Open API | Not MVP | Document as unsupported until onboarded |
-| Octopus auto-sync | Unverified | Manual + CSV only; label unsupported |
-| FPS initiation | No | Not MVP |
-
-HKMA example endpoint (validate schema before production):
-
-`https://api.hkma.gov.hk/public/market-data-and-statistics/monthly-statistical-bulletin/er-ir/er-eeri-daily`
-
----
-
-## 13. AI coach (post-MVP core)
-
-**Not required for budgeting MVP.**
-
-### Levels
-
-1. **Structured assist:** category suggest, NL → draft expense, explain summaries (user confirms).
-2. **Read-only agent:** tools `getSpendingSummary`, `getGoalProgress`, `getSafeToSpend`, `simulateCutBack`.
-3. **Draft writes:** user confirms before commit.
-
-### Prohibited
-
-Transfers, unrestricted SQL, other users’ data, arbitrary fetch, auto-delete, model-side arithmetic authority.
-
-### Architecture
+### Suggested week order (parallel)
 
 ```text
-Message → auth + consent → tool allowlist → validate args
-→ deterministic service → model explains → UI shows assumptions
+Week 1
+  P1: persistence works on every dev machine (priority)
+  P2 + P3: polish existing dashboard and sheets
+  P4: tests + finance edge cases
+  P5: i18n gaps + README accuracy
+
+Week 2 (before judging)
+  P1: export + auth spike OR Phase B decision doc
+  P2: optional CSV/import route shell (UI only) if P3 not doing import
+  P3: CSV import MVP (Papa Parse) OR hand off to P1 if server validation needed
+  P4: tie insights numbers to tested helpers
+  P5: E2E demo path + presentation deck / video
 ```
 
-One model + small toolset—no multi-agent framework by default.
+### Clear “not duplicate” boundaries
+
+| Topic | Owner | Others |
+|-------|--------|--------|
+| Change `schema.ts` fields | **P1** proposes; team agrees in chat | P3/P4 update types & forms after merge |
+| Change safe-to-spend formula | **P4** | P2 displays; P5 documents in UI strings |
+| New bottom sheets / forms | **P3** | Follow `AGENTS.md` |
+| New routes / layout | **P2** | — |
+| Copy EN/繁 | **P5** writes or reviews | P2/P3 add keys only with both locales |
+| `package.json` / shadcn pin | **P1** only | Everyone else files issues, no ad-hoc bumps |
+
+### Per-person definition of done
+
+- **P1:** Fresh clone → `npm install` → `npm run dev` → create jar → refresh → data still present in `.data/pocketgoals.sqlite`; README backend section updated; Settings → JSON export works.
+- **P2:** Mobile + desktop usable; bottom nav does not cover content; demo banner if using seed.
+- **P3:** Every primary button in sheets submits or shows validation error; round-up path tested manually.
+- **P4:** `npm run test` (once added) passes for `finance.ts`; forecast/summary match manual spreadsheet spot-check.
+- **P5:** Demo checklist in README runs in &lt;5 min; hide amounts + 繁 in demo; no missing `dict` keys in console.
+
+### Optional sixth backlog (pick any owner)
+
+- CSV import (P3 + P1)
+- JSON export in Settings (P1 + P3)
+- Express + PostgreSQL Phase B (P1 leads, freeze scope early)
+
+Rename roles in your team chat (e.g. 志恒 = P4) but keep **one owner per row** to avoid merge conflicts.
 
 ---
 
-## 14. Implementation milestones
+## 21. Implementation progress (per person)
 
-Work in order. Each milestone ends with **runnable verification steps** and a short “remaining gaps” note.
+**Legend:** `[x]` done in repo · `[ ]` not started or incomplete · `[-]` in progress (owner marks when started)
 
-### Milestone 0 — Tooling (0.5 day)
+**Last reviewed:** 2026-11-14 · **Overall demo:** ~65% (local save/load works on `npm run dev`)
 
-**Scope:** Monorepo folders, root scripts optional, env examples, shared package import path in Vite.
+Update checkboxes in PRs that belong to that owner. Do not tick another person’s items without their review.
 
-| Task | Deliverable |
-|------|-------------|
-| `npm create vue@latest client` | **TypeScript: Yes**, Router, Pinia, Vitest, Playwright, ESLint |
-| Bootstrap + vue-i18n + chart.js + papaparse | `package.json` deps |
-| `server/` TypeScript + Express | `app.ts` health route; `tsx` dev script |
-| `shared/` + Vite alias | Import `money.ts` from client |
-| `.env.example` files | Both packages |
+### P1 — Platform & data
 
-**Verify:** `client` dev server loads; `GET /api/health` returns OK.
+- [x] `schema.ts` — goals, transactions, settings collections defined
+- [x] Node dev backend — `server/local-db.ts`, `server/local-api.ts`, `server/vite-local-api-plugin.ts`
+- [x] `vite.config.ts` — `localApiPlugin()` when `NODE_RUNTIME=node`
+- [x] SQLite path `.data/pocketgoals.sqlite` (gitignored)
+- [x] REST: `GET/POST/PATCH/DELETE` on `/api/goals`, `/api/transactions`, `/api/settings`
+- [x] `GET /api/export` JSON backup
+- [x] Minimal `__vibes_sub` WebSocket + `__vibes_events` keepalive for SDK
+- [x] README backend + architecture updated
+- [x] `package.json` deps: `node:sqlite` (built-in), `ws`
+- [ ] `@omg-dev/auth` / multi-user (optional MVP)
+- [ ] Phase B Express + PostgreSQL decision or spike doc
+- [ ] Production API strategy (static `dist/` + separate host)
 
----
-
-### Milestone 1 — Interface prototype (demo mode)
-
-**Scope:** Full navigation shell, dashboard layout, mock data, i18n, theme, privacy toggle. No real backend.
-
-| Area | Files / work |
-|------|----------------|
-| Layouts | `AppLayout`, `AuthLayout`, responsive sidebar vs bottom nav |
-| Views | `DashboardView`, `GoalsView`, `TransactionsView`, `SettingsView`, stub others |
-| Dashboard components | `SavingsSummary`, `SafeToSpendCard`, `GoalCard`, charts with static/mock series |
-| Forms | `GoalForm`, `TransactionForm` → update Pinia mock store |
-| Mocks | `mocks/seed.ts`, `mocks/repository.ts`; banner “Demo data” |
-| Preferences | `preferences` store: locale, theme, hide amounts |
-| Router | Auth guards stubbed for demo |
-
-**Acceptance:**
-
-- [ ] Mobile + desktop layouts match section 5 wireframe intent  
-- [ ] EN/繁 switch updates copy  
-- [ ] Privacy hides all monetary UI including a11y text  
-- [ ] No button without behavior on touched screens  
-- [ ] `VITE_DEMO_MODE=true` only path (no silent mock on failed fetch later)
+**P1 sign-off check:** `npm install` → `npm run dev` → see `[pocketgoals]` log → create jar → refresh → jar persists.
 
 ---
 
-### Milestone 2 — Financial logic
+### P2 — Dashboard & navigation
 
-**Scope:** `shared/` implementations + Vitest; client uses shared for display; no DB yet.
+- [x] Main dashboard in `src/App.tsx` (hero, forecast, jars, charts, insights)
+- [x] TanStack Router shell — `src/routes/__root.tsx`, `src/routes/index.tsx` → `/`
+- [x] Header controls (lang, privacy, theme, settings)
+- [x] Fixed bottom action bar (expense, top-up, payday)
+- [x] `src/components/Charts.tsx` — rings, bars, line
+- [x] App title + favicons (`index.html`, `public/*`, piggy source)
+- [x] Demo-data banner when `source: "demo"` rows present
+- [x] Explicit loading / error UI when `useCollection` returns `error` (not only “Loading…”)
+- [x] Optional routes: `/activity`, `/goals`, `/import` (file-based routes)
+- [x] Bottom nav safe-area / overlap QA on small phones
 
-| File | Tests |
-|------|-------|
-| `money.ts` | parse/format HKD, reject unsafe integers |
-| `roundUp.ts` | §7.2 cases |
-| `safeToSpend.ts` | buffers, obligations, edge cases §16 |
-| Mock ledger service | Classify transfers vs expenses in memory |
-
-**Acceptance:**
-
-- [ ] All financial unit tests in §16.1 passing  
-- [ ] Dashboard numbers computed from mock ledger via shared functions
-
----
-
-### Milestone 3 — Persistence and auth
-
-**Scope:** PostgreSQL schema, migrations, session auth, CRUD APIs, ownership.
-
-| Task | Detail |
-|------|--------|
-| `001_initial_schema.sql` | Tables §6.1 |
-| Auth module | register/login/logout, bcrypt, session store |
-| CSRF | Token endpoint + middleware |
-| Modules | accounts, transactions, goals, allocations, budget safe-to-spend |
-| Client | Wire services to API; `VITE_DEMO_MODE=false` path |
-| Export/delete | `/exports/transactions`, account deletion policy |
-
-**Acceptance:**
-
-- [ ] E2E flow §16 (without import) on account mode  
-- [ ] Security tests §16.3 for ownership and forged `userId`  
-- [ ] API errors use stable codes
+**P2 sign-off check:** Scroll full page on mobile width; jars swipe; no content hidden behind bottom bar.
 
 ---
 
-### Milestone 4 — Import and insights
+### P3 — Forms & money entry
 
-**Scope:** CSV UI + server preview/confirm; spending summaries; subscription candidates (basic); cut-back API.
+- [x] `QuickSheets.tsx` — expense, top-up, payday, new jar, settings
+- [x] Validation (disabled submit until amount/title rules met)
+- [x] Round-up chips when settings allow
+- [x] Delete confirmations for jar / transaction
+- [x] Settings → JSON export button (opens `/api/export`)
+- [x] Clear all data flow
+- [ ] User-visible error toast/message when `POST /api/*` fails (network down)
+- [ ] CSV import sheet + file picker (schema `source: "csv"`)
+- [ ] Busy state blocks double-submit on all sheets (audit payday/top-up)
+- [ ] Manual QA script: one path each for expense, top-up, payday, new jar
 
-| Task | Detail |
-|------|--------|
-| `ImportView` + `ImportPreview` | Papa Parse + column mapper |
-| `imports` module | preview, fingerprint duplicates, idempotent confirm |
-| Insights | Category totals, recurring heuristics |
-| `POST /simulations/cut-back` | Deterministic |
-
-**Acceptance:**
-
-- [ ] Import tests §16.2  
-- [ ] Chinese descriptions and ambiguous dates handled
-
----
-
-### Milestone 5 — Optional integrations
-
-**Scope:** HKMA adapter, read-only coach, AI disabled path, evaluation tests §13.
-
-**Acceptance:**
-
-- [ ] AI off → clear unavailable UI  
-- [ ] Coach never executes non-allowlisted tools  
-- [ ] HKMA failure → stale/cached/meta handling
+**P3 sign-off check:** With backend up, every bottom-bar and sheet primary button completes or shows validation.
 
 ---
 
-### Milestone 6 — Production preparation
+### P4 — Finance & insights
 
-Accessibility audit, threat model review, backup/restore, monitoring hooks, deployment doc in `docs/`.
+- [x] `src/lib/finance.ts` — summary, safe-to-spend, forecast, streak, insights, cut-back
+- [x] `src/lib/seed.ts` — demo dataset (parallel writes; needs stable API)
+- [x] Types/enums aligned with `schema.ts` (categories, channels, jar colors)
+- [x] UI wiring in `App.tsx` for forecast “what if purchase”, invisible spend, subscriptions
+- [ ] Vitest (`npm run test`) for `summary`, `cashFlowForecast`, `cutBack`, `savingsStreak`
+- [ ] Spreadsheet spot-check doc or test vectors (sample month of txs)
+- [ ] Footnote copy reviewed (“estimate, not guarantee”) EN + 繁
+- [ ] Minor-unit / decimal policy documented if rubric requires it
 
-**MVP definition of done (§16):**
-
-- Core flows mobile + desktop  
-- Financial tests automated  
-- Demo requires no credentials  
-- Real mode never silent-fallback to mocks  
-- No secrets in frontend bundle  
-- Unsupported integrations labeled  
-
----
-
-## 15. Testing matrix
-
-### 15.1 Financial (unit)
-
-HK$38 round-up; HK$40 zero; negatives rejected; transfers ≠ income; card repayment ≠ duplicate expense; allocations don’t create money; no double reserve; empty period; missing balance warning; refunds; HK date boundaries.
-
-### 15.2 Import (integration)
-
-Invalid/ambiguous dates; repeat upload; duplicate vs legitimate twin rows; Chinese text; oversized file; unsupported currency; formula injection in export fields.
-
-### 15.3 Security (integration)
-
-Cross-user goals/transactions; forged body `userId`; expired session; AI tool allowlist; AI confirm ownership.
-
-### 15.4 E2E (Playwright)
-
-Full flow: register → onboard → account → goal → expense → allocate → safe-to-spend assumptions → CSV import → 繁 → hide amounts → export.
+**P4 sign-off check:** Numbers on dashboard match hand calculation for one fixed fixture (in test or doc).
 
 ---
 
-## 16. npm scripts (target)
+### P5 — Language, quality & release
 
-| Package | Script | Behavior |
-|---------|--------|----------|
-| client | `dev` | Vite |
-| client | `build` | Production build |
-| client | `test:unit` | Vitest |
-| server | `dev` | Watch mode |
-| server | `start` | Production |
-| server | `db:migrate` | Run migrations |
-| server | `db:seed` | Dev fictional data |
-| server | `test` | Vitest + Supertest |
+- [x] `src/lib/i18n.ts` — EN + 繁 for core UI and sheets
+- [x] `src/lib/prefs.tsx` — lang, dark, hide amounts (localStorage)
+- [x] `exportBackup` string (EN + 繁)
+- [x] `README.md` — run, features, backend, repo tree, gaps
+- [x] `PLAN.md` — team split + this progress section
+- [ ] ESLint clean run documented (`npm run lint`) in README/PR template
+- [ ] Playwright (or similar) smoke: load → demo → log expense → refresh
+- [ ] &lt;5 min demo checklist for judges (step list in README)
+- [ ] a11y pass: sheet labels, `aria-label` on icon buttons, charts with privacy mode
+- [ ] Submission assets (deck / video / poster) — outside repo
 
----
-
-## 17. Contributor workflow
-
-1. Read `README.md` then the milestone section here you are implementing.
-2. Pick a milestone or sub-task; avoid starting bank aggregation before M5.
-3. Branch naming: `feat/m2-safe-to-spend`, `fix/import-date-parser`, etc.
-4. PR must state: milestone, files touched, how to run tests, **known incomplete** items.
-5. Update `PLAN.md` checklist only when milestone acceptance items are truly done.
-6. User-facing strings: update both `en-HK.json` and `zh-HK.json`.
-7. Do not commit `.env` or secrets; use `.env.example` deltas.
-
-### Code review focus
-
-- Money as integers end-to-end  
-- Transaction type correctness  
-- Ownership on new routes  
-- Demo vs real mode separation  
-- Bootstrap JS not imported  
-- Accessible privacy mode  
+**P5 sign-off check:** Switch 繁 + hide amounts during demo; no missing i18n keys in console.
 
 ---
 
-## 18. Agent / assistant brief (copy with PLAN)
+### Cross-team integration (everyone)
 
-Use when prompting a coding assistant:
+- [x] Single command `npm run dev` serves UI + API
+- [x] `npm run build` succeeds
+- [ ] `npm run lint` passes with zero new errors (run before merge)
+- [ ] No `npm audit fix --force`
+- [ ] Team agrees who owns next: CSV import vs Phase B vs auth
 
-```text
-Build PocketGoals HK per PLAN.md in the repo root.
-Vue 3 + TypeScript + Bootstrap CSS + Express + PostgreSQL.
-MVP: virtual savings buckets only—no real transfers.
-Implement current milestone only; list files; add tests; state gaps.
-Follow shared/ financial rules and API envelopes exactly.
-Demo mode labeled; no silent mock fallback on API errors.
-```
+### Quick status snapshot
 
----
-
-## 19. Feature roadmap (post-MVP)
-
-| Version | Features |
-|---------|----------|
-| v2 | Subscriptions, cut-back UI, streaks, group challenges, FX widget, deposit comparison, read-only coach |
-| v3 | Approved bank/statement integrations, receipt extraction, consent notifications, confirmed AI drafts |
-
-**Excluded until explicitly designed:** autonomous trading, auto subscription cancel, guaranteed returns.
-
----
-
-## 20. First release direction
-
-> Reliable Vue savings dashboard with manual/CSV tracking, virtual goal buckets, and transparent safe-to-spend calculations.
-
-Optional later:
-
-> Read-only AI coach that explains application-computed data and proposes edits for user confirmation.
-
-Bank aggregation and real money movement remain **conditional** integrations, not MVP dependencies.
+| Person | Progress (approx.) | Blocker / next step |
+|--------|-------------------|---------------------|
+| **P1** | **~90%** | Auth/production optional |
+| **P2** | **~95%** | Polish only (CSV route shell until P3) |
+| **P3** | **~75%** | API error UX, CSV |
+| **P4** | **~60%** | Vitest + fixture checks |
+| **P5** | **~65%** | E2E smoke + demo script |

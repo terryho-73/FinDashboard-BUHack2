@@ -12,6 +12,7 @@ export default defineSchema({
         target: fields.number(),
         emoji: fields.string(),
         color: fields.enum(["rose", "amber", "sky", "emerald", "violet"]),
+        target_date: fields.string(),
       },
     }).scoped("global"),
     transactions: collection({

@@ -10,10 +10,16 @@ type Api = {
 export async function seedDemo(api: Api) {
   const today = todayISO()
   const jars = [
-    { name: "Japan Travel Fund", target: 15000, emoji: "✈️", color: "sky" as const },
-    { name: "Rental Deposit", target: 48000, emoji: "🏠", color: "amber" as const },
-    { name: "Emergency Fund", target: 30000, emoji: "🛟", color: "emerald" as const },
-    { name: "Concert Tickets", target: 9000, emoji: "🎫", color: "violet" as const },
+    {
+      name: "Japan Travel Fund",
+      target: 15000,
+      emoji: "✈️",
+      color: "sky" as const,
+      target_date: addDays(today, 120),
+    },
+    { name: "Rental Deposit", target: 48000, emoji: "🏠", color: "amber" as const, target_date: addDays(today, 200) },
+    { name: "Emergency Fund", target: 30000, emoji: "🛟", color: "emerald" as const, target_date: "" },
+    { name: "Concert Tickets", target: 9000, emoji: "🎫", color: "violet" as const, target_date: addDays(today, 60) },
   ]
   const goals: { id: string }[] = []
   for (const j of jars) goals.push(await api.addGoal(j))

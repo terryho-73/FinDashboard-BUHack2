@@ -312,6 +312,7 @@ export function GoalSheet(props: SheetProps) {
   const [targetText, setTargetText] = useState("")
   const [emoji, setEmoji] = useState(JAR_EMOJIS[0])
   const [color, setColor] = useState<Goal["color"]>("sky")
+  const [targetDate, setTargetDate] = useState("")
   const [busy, setBusy] = useState(false)
   const target = parseAmount(targetText)
 
@@ -319,7 +320,13 @@ export function GoalSheet(props: SheetProps) {
     if (!name.trim() || target <= 0 || busy) return
     setBusy(true)
     try {
-      await api.addGoal({ name: name.trim(), target, emoji, color })
+      await api.addGoal({
+        name: name.trim(),
+        target,
+        emoji,
+        color,
+        target_date: targetDate.trim(),
+      })
       setName("")
       setTargetText("")
       props.onOpenChange(false)
@@ -335,6 +342,9 @@ export function GoalSheet(props: SheetProps) {
       </Field>
       <Field label={t.goalTarget}>
         <Input inputMode="decimal" value={targetText} onChange={(e) => setTargetText(e.target.value)} placeholder="15000" />
+      </Field>
+      <Field label={t.goalTargetDate}>
+        <Input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} />
       </Field>
       <Field label={t.goalEmoji}>
         <ChipRow>
@@ -445,6 +455,25 @@ export function SettingsSheet(props: SheetProps & { onClear?: () => void; onSave
         </ChipRow>
       </Field>
       <Button onClick={submit} disabled={busy} className="h-11 w-full text-base">{t.save}</Button>
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full"
+        onClick={() => {
+          window.open("/api/export", "_blank", "noopener,noreferrer")
+        }}
+      >
+        {t.exportBackup}
+      </Button>
+      <Button
+        variant="ghost"
+        onClick={() => {
+          if (window.confirm(t.clearConfirm)) props.onClear()
+        }}
+        className="w-full text-destructive"
+      >
+        {t.clearAll}
+      </Button>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {props.onClear && (
         <Button
