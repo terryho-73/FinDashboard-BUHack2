@@ -31,9 +31,9 @@ It tracks manually entered or imported transactions, organizes savings into **vi
 
 | Layer | Choice |
 |-------|--------|
-| Frontend | Vue 3, JavaScript, Vite, Bootstrap 5.3, Vue Router, Pinia, Vue I18n, Chart.js, Papa Parse |
-| Backend | Node.js, Express, PostgreSQL (`pg` + SQL migrations), Zod |
-| Shared | Pure JS financial helpers (`money`, `safeToSpend`, `roundUp`) |
+| Frontend | Vue 3, **TypeScript**, Vite, Bootstrap 5.3, Vue Router, Pinia, Vue I18n, Chart.js, Papa Parse |
+| Backend | Node.js, **TypeScript**, Express, PostgreSQL (`pg` + SQL migrations), Zod |
+| Shared | Typed pure modules (`money`, `safeToSpend`, `roundUp`) in `shared/` |
 | Tests | Vitest (unit), Playwright (e2e) |
 | Defaults | HKD, `Asia/Hong_Kong`, English + Traditional Chinese |
 
@@ -104,7 +104,7 @@ Do **not** block early milestones on bank aggregation.
 
 ```bash
 npm create vue@latest client
-# JavaScript, Router, Pinia, unit tests, Playwright if offered
+# TypeScript: Yes, Router, Pinia, unit tests, Playwright if offered
 cd client && npm install
 npm install bootstrap@5.3 bootstrap-icons vue-i18n chart.js papaparse
 npm run dev
@@ -116,7 +116,10 @@ npm run dev
 mkdir server && cd server
 npm init -y && npm pkg set type=module
 npm install express pg zod helmet express-rate-limit dotenv
+npm install -D typescript tsx @types/express @types/node
 ```
+
+Configure `tsconfig.json` and run the API with `tsx` in development (see [`PLAN.md` §2](PLAN.md) TypeScript conventions).
 
 Environment examples are documented in [`PLAN.md` §10.2](PLAN.md). Never put private API keys in `VITE_*` variables.
 

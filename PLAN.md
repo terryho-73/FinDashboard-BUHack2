@@ -57,8 +57,9 @@ It answers:
 
 | Layer | Technology | Notes |
 |-------|------------|--------|
-| UI | Vue 3, Composition API, `<script setup>` | JavaScript only—no TypeScript |
-| Build | Vite | |
+| Language | **TypeScript** | App code in `.ts` / `lang="ts"`; strict mode recommended |
+| UI | Vue 3, Composition API, `<script setup>` | |
+| Build | Vite | `vite.config.ts` when using TypeScript |
 | Styling | Bootstrap 5.3 CSS + custom tokens | **No Bootstrap JS** in Vue-controlled widgets |
 | Routing / state | Vue Router, Pinia | |
 | i18n | Vue I18n | |
@@ -68,10 +69,19 @@ It answers:
 | Backend | Node.js, Express, ESM | |
 | DB | PostgreSQL, `pg`, SQL migrations | Parameterized queries |
 | Validation | Zod | Request bodies |
-| Shared logic | `shared/*.js` pure functions | Imported by client (bundled) and server |
+| Shared logic | `shared/*.ts` pure functions | Imported by client (bundled) and server |
 | Tests | Vitest (unit), Playwright (e2e), Supertest (HTTP) | |
 
 **Do not introduce** (unless explicitly approved): React, Next.js, Tailwind, microservices, vector DB, multi-agent AI frameworks.
+
+### TypeScript conventions
+
+- **Client:** Run `npm create vue@latest client` with **TypeScript: Yes**. Use `<script setup lang="ts">` in SFCs. Prefer typed Pinia stores and typed `apiRequest` responses.
+- **Server:** Add `typescript`, `tsx` (or `ts-node` + ESM loader), and `@types/*` for Express. Entry points under `server/src/**/*.ts`; compile or run via `tsx` in development.
+- **Shared:** Financial modules (`money`, `safeToSpend`, `roundUp`) are typed pure functions; export explicit types for minor-unit amounts (`type MoneyMinor = number` branded or documented).
+- **Validation:** Define Zod schemas once; infer TypeScript types with `z.infer<typeof Schema>` for API DTOs.
+- **Money types:** Use `number` minor units only after `Number.isSafeInteger` guards; avoid `any` in ledger and allocation code.
+- **Locales:** JSON locale files stay `.json`; no need to type every UI string in the first milestone.
 
 ### Bootstrap + Vue
 
@@ -145,13 +155,15 @@ Create this structure at repo root (names may use `pocketgoals-hk/` as monorepo 
 client/
 ├── package.json
 ├── .env.example
-├── vite.config.js
+├── vite.config.ts
+├── tsconfig.json
+├── tsconfig.app.json
 ├── index.html
 └── src/
-    ├── main.js
+    ├── main.ts
     ├── App.vue
     ├── assets/styles/{tokens.css,main.css}
-    ├── router/index.js
+    ├── router/index.ts
     ├── layouts/{AppLayout,AuthLayout}.vue
     ├── views/
     │   DashboardView, GoalsView, GoalDetailView, TransactionsView,
@@ -163,11 +175,12 @@ client/
     │   dashboard/{SavingsSummary,SafeToSpendCard,CashFlowChart,CategoryChart}.vue
     │   goals/{GoalCard,GoalForm,AllocationForm}.vue
     │   transactions/{TransactionForm,TransactionList,ImportPreview}.vue
-    ├── stores/{auth,preferences,goals,transactions}.js
-    ├── composables/{useMoney,usePrivacy}.js
-    ├── services/{api,goals.api,transactions.api,coach.api}.js
+    ├── stores/{auth,preferences,goals,transactions}.ts
+    ├── composables/{useMoney,usePrivacy}.ts
+    ├── services/{api,goals.api,transactions.api,coach.api}.ts
+    ├── types/                    # API DTOs, domain enums
     ├── locales/{en-HK.json,zh-HK.json}
-    └── mocks/{seed.js,repository.js}
+    └── mocks/{seed.ts,repository.ts}
 ```
 
 ### 4.2 Server (`server/`)
@@ -177,15 +190,16 @@ server/
 ├── package.json
 ├── .env.example
 ├── migrations/001_initial_schema.sql
-├── scripts/{migrate.js,seed.js}
+├── tsconfig.json
+├── scripts/{migrate.ts,seed.ts}
 └── src/
-    ├── app.js, server.js
-    ├── config/env.js
-    ├── db/pool.js
-    ├── middleware/{authenticate,csrf,validate,errorHandler}.js
+    ├── app.ts, server.ts
+    ├── config/env.ts
+    ├── db/pool.ts
+    ├── middleware/{authenticate,csrf,validate,errorHandler}.ts
     ├── modules/{auth,accounts,transactions,goals,budgets,imports,insights}/
-    ├── integrations/{hkma.adapter,banking.adapter}.js
-    ├── ai/{provider,coach.service,tools,policies}.js
+    ├── integrations/{hkma.adapter,banking.adapter}.ts
+    ├── ai/{provider,coach.service,tools,policies}.ts
     └── tests/ (or top-level server/tests)
 ```
 
@@ -193,21 +207,21 @@ server/
 
 ```text
 goals/
-├── goals.routes.js
-├── goals.controller.js
-├── goals.service.js
-├── goals.repository.js
-└── goals.schema.js
+├── goals.routes.ts
+├── goals.controller.ts
+├── goals.service.ts
+├── goals.repository.ts
+└── goals.schema.ts
 ```
 
 ### 4.3 Shared (`shared/`)
 
 | File | Responsibility |
 |------|----------------|
-| `money.js` | minor units parse/format, safe integer checks |
-| `safeToSpend.js` | discretionary balance + daily allowance |
-| `roundUp.js` | virtual round-up suggestion |
-| `schemas.js` | Shared Zod fragments optional |
+| `money.ts` | minor units parse/format, safe integer checks |
+| `safeToSpend.ts` | discretionary balance + daily allowance |
+| `roundUp.ts` | virtual round-up suggestion |
+| `schemas.ts` | Shared Zod schemas and inferred types |
 
 ---
 
@@ -332,7 +346,7 @@ daily_allowance = max(0, discretionary) ÷ remaining_calendar_days_in_period
 roundUp = (increment - (amount % increment)) % increment
 ```
 
-Default increment HK$10 → minor `1000`. Implement in `shared/roundUp.js` with unit tests (HK$38 → 200 minor, HK$40 → 0).
+Default increment HK$10 → minor `1000`. Implement in `shared/roundUp.ts` with unit tests (HK$38 → 200 minor, HK$40 → 0).
 
 ### 7.3 Cut-back simulator (Milestone 4 / v2)
 
@@ -446,7 +460,7 @@ Select file → source/account → column map → parse → preview
 
 ## 10. Frontend integration
 
-### 10.1 `client/src/services/api.js`
+### 10.1 `client/src/services/api.ts`
 
 - `API_BASE = import.meta.env.VITE_API_BASE_URL || '/api'`
 - `credentials: 'include'`
@@ -472,7 +486,7 @@ AI_MODEL=
 
 Never put secrets in `VITE_*`.
 
-### 10.3 `main.js` bootstrap
+### 10.3 `main.ts` bootstrap
 
 - Pinia, Router, I18n before mount.
 - Import Bootstrap CSS + icons + `main.css`.
@@ -501,7 +515,7 @@ Group challenges (v2): never send private balances to client for CSS hiding.
 
 | Integration | MVP | Approach |
 |-------------|-----|----------|
-| HKMA public rates | Optional M5 | `hkma.adapter.js`, cache, stale flag, tests |
+| HKMA public rates | Optional M5 | `hkma.adapter.ts`, cache, stale flag, tests |
 | AI provider | Optional M5 | Server-only adapter |
 | Bank Open API | Not MVP | Document as unsupported until onboarded |
 | Octopus auto-sync | Unverified | Manual + CSV only; label unsupported |
@@ -548,10 +562,10 @@ Work in order. Each milestone ends with **runnable verification steps** and a sh
 
 | Task | Deliverable |
 |------|-------------|
-| `npm create vue@latest client` | JS, Router, Pinia, Vitest, Playwright, ESLint |
+| `npm create vue@latest client` | **TypeScript: Yes**, Router, Pinia, Vitest, Playwright, ESLint |
 | Bootstrap + vue-i18n + chart.js + papaparse | `package.json` deps |
-| `server/` npm init ESM + express stack | `app.js` health route |
-| `shared/` + Vite alias | Import `money.js` from client |
+| `server/` TypeScript + Express | `app.ts` health route; `tsx` dev script |
+| `shared/` + Vite alias | Import `money.ts` from client |
 | `.env.example` files | Both packages |
 
 **Verify:** `client` dev server loads; `GET /api/health` returns OK.
@@ -568,7 +582,7 @@ Work in order. Each milestone ends with **runnable verification steps** and a sh
 | Views | `DashboardView`, `GoalsView`, `TransactionsView`, `SettingsView`, stub others |
 | Dashboard components | `SavingsSummary`, `SafeToSpendCard`, `GoalCard`, charts with static/mock series |
 | Forms | `GoalForm`, `TransactionForm` → update Pinia mock store |
-| Mocks | `mocks/seed.js`, `mocks/repository.js`; banner “Demo data” |
+| Mocks | `mocks/seed.ts`, `mocks/repository.ts`; banner “Demo data” |
 | Preferences | `preferences` store: locale, theme, hide amounts |
 | Router | Auth guards stubbed for demo |
 
@@ -588,9 +602,9 @@ Work in order. Each milestone ends with **runnable verification steps** and a sh
 
 | File | Tests |
 |------|-------|
-| `money.js` | parse/format HKD, reject unsafe integers |
-| `roundUp.js` | §7.2 cases |
-| `safeToSpend.js` | buffers, obligations, edge cases §16 |
+| `money.ts` | parse/format HKD, reject unsafe integers |
+| `roundUp.ts` | §7.2 cases |
+| `safeToSpend.ts` | buffers, obligations, edge cases §16 |
 | Mock ledger service | Classify transfers vs expenses in memory |
 
 **Acceptance:**
@@ -724,11 +738,11 @@ Full flow: register → onboard → account → goal → expense → allocate �
 
 ## 18. Agent / assistant brief (copy with PLAN)
 
-Use when prompting Cursor or other assistants:
+Use when prompting a coding assistant:
 
 ```text
 Build PocketGoals HK per PLAN.md in the repo root.
-Vue 3 + JS + Bootstrap CSS + Express + PostgreSQL.
+Vue 3 + TypeScript + Bootstrap CSS + Express + PostgreSQL.
 MVP: virtual savings buckets only—no real transfers.
 Implement current milestone only; list files; add tests; state gaps.
 Follow shared/ financial rules and API envelopes exactly.
