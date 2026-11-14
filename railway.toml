@@ -1,0 +1,3 @@
+# Railpack: Vite static site — npm install uses package-lock.json (no bun.lock).
+[build]
+buildCommand = "npm run build"

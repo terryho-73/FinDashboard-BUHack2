@@ -22,7 +22,6 @@
     "@omg-dev/server": "^0.4.60",
     "@tanstack/react-router": "^1.170.46",
     "better-drizzle": "^0.1.1",
-    "better-sqlite3": "^11.10.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cn": "^0.5.2",
