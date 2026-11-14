@@ -160,7 +160,7 @@ BUHack2/
 | Styling | Tailwind v4, shadcn 4.23.0 |
 | Data client | `@omg-dev/sdk` (`useCollection`) |
 | Schema | `@omg-dev/schema` (`schema.ts`) |
-| Dev persistence | Local SQLite via `server/*` (Node dev) or `@omg-dev/vite-plugin` on Bun/Vibes hosts |
+| Dev persistence | Local SQLite via `server/*` (`node:sqlite`, Node **22+**) or `@omg-dev/vite-plugin` on Bun/Vibes hosts |
 | Lint | ESLint |
 
 ---

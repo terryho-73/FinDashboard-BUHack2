@@ -480,7 +480,7 @@ Update checkboxes in PRs that belong to that owner. Do not tick another person�
 - [x] `GET /api/export` JSON backup
 - [x] Minimal `__vibes_sub` WebSocket + `__vibes_events` keepalive for SDK
 - [x] README backend + architecture updated
-- [x] `package.json` deps: `better-sqlite3`, `ws`
+- [x] `package.json` deps: `node:sqlite` (built-in), `ws`
 - [ ] `@omg-dev/auth` / multi-user (optional MVP)
 - [ ] Phase B Express + PostgreSQL decision or spike doc
 - [ ] Production API strategy (static `dist/` + separate host)
@@ -497,10 +497,10 @@ Update checkboxes in PRs that belong to that owner. Do not tick another person�
 - [x] Fixed bottom action bar (expense, top-up, payday)
 - [x] `src/components/Charts.tsx` — rings, bars, line
 - [x] App title + favicons (`index.html`, `public/*`, piggy source)
-- [ ] Demo-data banner when `source: "demo"` rows present
-- [ ] Explicit loading / error UI when `useCollection` returns `error` (not only “Loading…”)
-- [ ] Optional routes: `/activity`, `/goals`, `/import` (file-based routes)
-- [ ] Bottom nav safe-area / overlap QA on small phones
+- [x] Demo-data banner when `source: "demo"` rows present
+- [x] Explicit loading / error UI when `useCollection` returns `error` (not only “Loading…”)
+- [x] Optional routes: `/activity`, `/goals`, `/import` (file-based routes)
+- [x] Bottom nav safe-area / overlap QA on small phones
 
 **P2 sign-off check:** Scroll full page on mobile width; jars swipe; no content hidden behind bottom bar.
 
@@ -568,7 +568,7 @@ Update checkboxes in PRs that belong to that owner. Do not tick another person�
 | Person | Progress (approx.) | Blocker / next step |
 |--------|-------------------|---------------------|
 | **P1** | **~90%** | Auth/production optional |
-| **P2** | **~70%** | Error/empty states, optional routes |
+| **P2** | **~95%** | Polish only (CSV route shell until P3) |
 | **P3** | **~75%** | API error UX, CSV |
 | **P4** | **~60%** | Vitest + fixture checks |
 | **P5** | **~65%** | E2E smoke + demo script |

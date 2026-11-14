@@ -1,12 +1,14 @@
-import { createRootRoute, Outlet } from "@tanstack/react-router"
+import { createRootRoute } from "@tanstack/react-router"
 import { PrefsProvider } from "@/lib/prefs"
+import { SavingsDataProvider } from "@/lib/savings-data"
+import { AppLayout } from "@/components/AppLayout"
 
-// The shell every route renders inside. Language, dark mode and the privacy
-// toggle are app-wide, so the provider wraps the whole tree.
 export const Route = createRootRoute({
   component: () => (
     <PrefsProvider>
-      <Outlet />
+      <SavingsDataProvider>
+        <AppLayout />
+      </SavingsDataProvider>
     </PrefsProvider>
   ),
 })

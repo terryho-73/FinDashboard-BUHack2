@@ -1,6 +1,6 @@
 import fs from "node:fs"
 import path from "node:path"
-import Database from "better-sqlite3"
+import { DatabaseSync } from "node:sqlite"
 
 export const COLLECTIONS = ["goals", "transactions", "settings"] as const
 export type CollectionName = (typeof COLLECTIONS)[number]
@@ -12,11 +12,19 @@ const BOOL_COLS: Record<CollectionName, Set<string>> = {
 }
 
 type LocalDb = {
-  db: Database.Database
+  db: DatabaseSync
   path: string
 }
 
-let singleton: LocalDb | null = null
+const globalKey = "__pocketgoals_local_sqlite__"
+
+function getGlobalSingleton(): LocalDb | null {
+  return (globalThis as Record<string, LocalDb | undefined>)[globalKey] ?? null
+}
+
+function setGlobalSingleton(v: LocalDb) {
+  ;(globalThis as Record<string, LocalDb>)[globalKey] = v
+}
 
 const DDL: Record<CollectionName, string> = {
   goals: `
@@ -27,7 +35,8 @@ const DDL: Record<CollectionName, string> = {
       name TEXT NOT NULL,
       target REAL NOT NULL,
       emoji TEXT NOT NULL,
-      color TEXT NOT NULL
+      color TEXT NOT NULL,
+      target_date TEXT NOT NULL DEFAULT ''
     )`,
   transactions: `
     CREATE TABLE IF NOT EXISTS transactions (
@@ -60,16 +69,21 @@ const DDL: Record<CollectionName, string> = {
 }
 
 export function getLocalDb(projectRoot: string): LocalDb {
-  if (singleton) return singleton
+  const existing = getGlobalSingleton()
+  if (existing) return existing
+
   const dir = path.join(projectRoot, ".data")
   fs.mkdirSync(dir, { recursive: true })
   const dbPath = path.join(dir, "pocketgoals.sqlite")
-  const db = new Database(dbPath)
-  db.pragma("journal_mode = WAL")
-  db.pragma("foreign_keys = ON")
+  const db = new DatabaseSync(dbPath)
+  db.exec("PRAGMA journal_mode = WAL")
+  db.exec("PRAGMA foreign_keys = ON")
   for (const name of COLLECTIONS) db.exec(DDL[name])
-  singleton = { db, path: dbPath }
-  return singleton
+  migrateGoalsTargetDate(db)
+
+  const handle: LocalDb = { db, path: dbPath }
+  setGlobalSingleton(handle)
+  return handle
 }
 
 function decodeRow(name: CollectionName, row: Record<string, unknown>): Record<string, unknown> {
@@ -80,11 +94,13 @@ function decodeRow(name: CollectionName, row: Record<string, unknown>): Record<s
   return out
 }
 
+function rowsOf(stmt: { all(...args: unknown[]): unknown[] }) {
+  return stmt.all() as Record<string, unknown>[]
+}
+
 export function listRows(name: CollectionName): Record<string, unknown>[] {
   const { db } = getLocalDbFromSingleton()
-  const rows = db
-    .prepare(`SELECT * FROM ${name} ORDER BY created_at DESC`)
-    .all() as Record<string, unknown>[]
+  const rows = rowsOf(db.prepare(`SELECT * FROM ${name} ORDER BY created_at DESC`))
   return rows.map((r) => decodeRow(name, r))
 }
 
@@ -144,8 +160,8 @@ export function updateRow(
 
 export function removeRow(name: CollectionName, id: string): boolean {
   const { db } = getLocalDbFromSingleton()
-  const info = db.prepare(`DELETE FROM ${name} WHERE id = ?`).run(id)
-  return info.changes > 0
+  const result = db.prepare(`DELETE FROM ${name} WHERE id = ?`).run(id) as { changes: number }
+  return result.changes > 0
 }
 
 export function exportAll(): Record<CollectionName, Record<string, unknown>[]> {
@@ -157,8 +173,16 @@ export function exportAll(): Record<CollectionName, Record<string, unknown>[]> {
 }
 
 function getLocalDbFromSingleton(): LocalDb {
-  if (!singleton) throw new Error("local db not initialized")
-  return singleton
+  const existing = getGlobalSingleton()
+  if (!existing) throw new Error("local db not initialized")
+  return existing
+}
+
+function migrateGoalsTargetDate(db: DatabaseSync) {
+  const cols = db.prepare("PRAGMA table_info(goals)").all() as { name: string }[]
+  if (!cols.some((c) => c.name === "target_date")) {
+    db.exec("ALTER TABLE goals ADD COLUMN target_date TEXT NOT NULL DEFAULT ''")
+  }
 }
 
 export function collectionFromPath(segment: string): CollectionName | null {
