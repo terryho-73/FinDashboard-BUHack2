@@ -71,6 +71,7 @@ export default function App() {
   // onboarding has settings and must stay on the dashboard, not loop back.
   const empty = !loading && goals.length === 0 && txs.length === 0 && !settings
   const isDemo = txs.some((tx) => tx.source === "demo")
+  const isCsv = txs.some((tx) => tx.source === "csv")
   useEffect(() => {
     if (empty) void navigate({ to: "/onboarding", replace: true })
   }, [empty, navigate])
@@ -155,41 +156,42 @@ export default function App() {
           <p className="py-10 text-center text-sm text-muted-foreground">{t.emptyLoading}</p>
         )}
 
-        {isDemo && (
-          <div className="flex justify-center">
-            <Badge variant="secondary">{t.demoBadge}</Badge>
+        {(isDemo || isCsv) && (
+          <div className="mb-1 flex flex-wrap justify-center gap-1.5">
+            {isDemo && <Badge variant="secondary">{t.demoBadge}</Badge>}
+            {isCsv && <Badge variant="outline">{t.csvBadge}</Badge>}
           </div>
         )}
 
         {/* 1. Hero status: total saved + safe-to-spend */}
-        <section className="rounded-3xl bg-primary p-5 text-primary-foreground shadow-sm">
-          <p className="text-sm opacity-80">{t.heroSaved}</p>
+        <section className="rounded-3xl border border-border bg-muted p-5 text-foreground shadow-sm">
+          <p className="text-sm text-muted-foreground">{t.heroSaved}</p>
           <p className="mt-1 text-4xl font-semibold tracking-tight tabular-nums break-words">
             {money(totalSaved, hidden)}
           </p>
           <div className="mt-5 grid grid-cols-2 gap-3">
-            <div className="min-w-0 rounded-2xl bg-primary-foreground/10 p-3">
-              <p className="text-xs opacity-80">{t.heroSafeToday}</p>
+            <div className="min-w-0 rounded-2xl border border-border/60 bg-background/60 p-3">
+              <p className="text-xs text-muted-foreground">{t.heroSafeToday}</p>
               <p className="mt-0.5 text-xl font-semibold tabular-nums break-words">
                 {money(s.perDay, hidden)}
-                <span className="block text-xs font-normal opacity-80">{t.perDay}</span>
+                <span className="block text-xs font-normal text-muted-foreground">{t.perDay}</span>
               </p>
             </div>
-            <div className="min-w-0 rounded-2xl bg-primary-foreground/10 p-3">
-              <p className="text-xs opacity-80">{t.heroSafeWeek}</p>
+            <div className="min-w-0 rounded-2xl border border-border/60 bg-background/60 p-3">
+              <p className="text-xs text-muted-foreground">{t.heroSafeWeek}</p>
               <p className="mt-0.5 text-xl font-semibold tabular-nums break-words">
                 {money(s.perWeek, hidden)}
-                <span className="block text-xs font-normal opacity-80">{t.perWeek}</span>
+                <span className="block text-xs font-normal text-muted-foreground">{t.perWeek}</span>
               </p>
             </div>
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-foreground/15 px-2.5 py-1">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/70 px-2.5 py-1 text-muted-foreground">
               <Flame className="size-3.5" aria-hidden="true" />
               {streak > 0 ? `${streak} ${t.streak}` : t.streakZero}
             </span>
-            <span className="opacity-80">
-              {t.heroLeftMonth}: <span className="font-medium opacity-100">{money(s.remaining, hidden)}</span>
+            <span className="text-muted-foreground">
+              {t.heroLeftMonth}: <span className="font-medium text-foreground">{money(s.remaining, hidden)}</span>
             </span>
           </div>
         </section>
@@ -405,6 +407,8 @@ export default function App() {
                       <p className="truncate text-sm font-medium">{tx.title}</p>
                       <p className="truncate text-xs text-muted-foreground">
                         {dayLabel(tx.date)} · {t.cats[tx.category]} · {t.channels[tx.channel]}
+                        {tx.source === "demo" ? ` · ${t.demoBadge}` : ""}
+                        {tx.source === "csv" ? ` · ${t.csvBadge}` : ""}
                       </p>
                     </div>
                     <div className="shrink-0 text-right">
@@ -512,7 +516,7 @@ export default function App() {
                       onClick={() => setHabitIdx(i)}
                       className={cn(
                         "max-w-full truncate rounded-full border px-3 py-1.5 text-xs",
-                        i === habitIdx ? "border-primary bg-primary text-primary-foreground" : "border-border bg-muted/50",
+                        i === habitIdx ? "border-border bg-muted-foreground/20 text-foreground" : "border-border bg-muted/50 text-muted-foreground",
                       )}
                     >
                       {h.title}
@@ -536,7 +540,7 @@ export default function App() {
                   />
                 </div>
                 {cut && (
-                  <div className="rounded-2xl bg-primary/10 p-4 text-sm">
+                  <div className="rounded-2xl border border-border/60 bg-muted p-4 text-sm">
                     <p className="font-semibold">{format(t.cutBackResult, { amount: money(cut.monthlySaving, hidden) })}</p>
                     {goals.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-2">
@@ -548,7 +552,7 @@ export default function App() {
                             onClick={() => setCutGoalId(g.id)}
                             className={cn(
                               "rounded-full border px-2.5 py-1 text-xs",
-                              cutGoal?.id === g.id ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background",
+                              cutGoal?.id === g.id ? "border-border bg-muted-foreground/20 text-foreground" : "border-border bg-muted/40 text-muted-foreground",
                             )}
                           >
                             {g.emoji} {g.name}

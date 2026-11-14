@@ -51,16 +51,25 @@ type SheetActions = {
 
 const SheetActionsCtx = createContext<SheetActions | null>(null)
 
+const noopSheetActions: SheetActions = {
+  openTopUp: () => {},
+  openNewGoal: () => {},
+  openExpense: () => {},
+  openPayday: () => {},
+  openSettings: () => {},
+  openQuickLog: () => {},
+}
+
 export function useSheetActions() {
   const v = useContext(SheetActionsCtx)
-  if (!v) throw new Error("useSheetActions must be used inside AppLayout")
-  return v
+  // Never crash route views if context is momentarily missing (HMR / first paint).
+  return v ?? noopSheetActions
 }
 
 export function AppLayout() {
   const navigate = useNavigate()
   const { t, lang, setLang, dark, setDark, hidden, setHidden } = usePrefs()
-  const { loading, empty, error, offline, hasDemoData, api, refreshAll, clearAll, goals, txs, settings } =
+  const { loading, empty, error, offline, hasDemoData, hasCsvData, api, refreshAll, clearAll, goals, txs, settings } =
     useSavingsData()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const today = todayISO()
@@ -71,6 +80,7 @@ export function AppLayout() {
   const [sheet, setSheet] = useState<SheetKey>(null)
   const [topUpJar, setTopUpJar] = useState<string | undefined>(undefined)
   const [demoBannerOpen, setDemoBannerOpen] = useState(false)
+  const [csvBannerOpen, setCsvBannerOpen] = useState(false)
 
   useEffect(() => {
     if (!hasDemoData) {
@@ -83,6 +93,18 @@ export function AppLayout() {
       setDemoBannerOpen(true)
     }
   }, [hasDemoData])
+  useEffect(() => {
+    if (!hasCsvData) {
+      setCsvBannerOpen(false)
+      return
+    }
+    try {
+      setCsvBannerOpen(localStorage.getItem("pocketgoals-csv-banner-dismissed") !== "1")
+    } catch {
+      setCsvBannerOpen(true)
+    }
+  }, [hasCsvData])
+
 
   function dismissDemoBanner() {
     setDemoBannerOpen(false)
@@ -107,7 +129,17 @@ export function AppLayout() {
 
   const showBlockingLoad = loading && empty && !error
 
+  const sheetActions: SheetActions = {
+    openTopUp,
+    openNewGoal: () => setSheet("goal"),
+    openExpense: () => setSheet("expense"),
+    openPayday: () => setSheet("payday"),
+    openSettings: () => setSheet("settings"),
+    openQuickLog: () => setSheet("quicklog"),
+  }
+
   return (
+    <SheetActionsCtx.Provider value={sheetActions}>
     <div className="min-h-svh bg-background text-foreground">
       <header className="sticky top-0 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
         <div className="mx-auto flex w-full max-w-md items-center gap-2 px-4 py-3">
@@ -173,7 +205,32 @@ export function AppLayout() {
           </div>
         )}
 
-        {offline && (
+        
+        {csvBannerOpen && (
+          <div className="border-b bg-muted/40 px-4 py-2">
+            <div className="mx-auto flex max-w-md items-center gap-2">
+              <p className="min-w-0 flex-1 text-xs text-foreground">{t.csvBanner}</p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-8 shrink-0"
+                aria-label={t.csvBannerDismiss}
+                onClick={() => {
+                  setCsvBannerOpen(false)
+                  try {
+                    localStorage.setItem("pocketgoals-csv-banner-dismissed", "1")
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+              >
+                <X className="size-3.5" />
+              </Button>
+            </div>
+          </div>
+        )}
+{offline && (
           <div className="border-t border-accent/30 bg-accent/15 px-4 py-2.5">
             <p className="mx-auto max-w-md text-center text-xs text-foreground">{t.offlineBanner}</p>
           </div>
@@ -219,32 +276,26 @@ export function AppLayout() {
           </Card>
         )}
 
-        <SheetActionsCtx.Provider
-          value={{
-            openTopUp,
-            openNewGoal: () => setSheet("goal"),
-            openExpense: () => setSheet("expense"),
-            openPayday: () => setSheet("payday"),
-            openSettings: () => setSheet("settings"),
-            openQuickLog: () => setSheet("quicklog"),
-          }}
-        >
-          <Outlet />
-        </SheetActionsCtx.Provider>
+        <Outlet />
       </main>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 pb-[calc(4.75rem+env(safe-area-inset-bottom))]">
         {pathname === "/" && <HomeCalendarDock />}
         <nav aria-label={t.quickActionsNav} className="pt-2">
           <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-1.5 px-4 pb-2">
-            <Button onClick={() => setSheet("quicklog")} className="h-11 flex-col gap-0.5 px-1 text-[10px]" size="lg">
+            <Button
+              variant="secondary"
+              onClick={() => setSheet("quicklog")}
+              className="h-11 flex-col gap-0.5 px-1 text-[10px] bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground border border-border/60 shadow-none"
+              size="lg"
+            >
               <Mic className="size-4" />
               {t.quickLog}
             </Button>
             <Button
               variant="secondary"
               onClick={() => setSheet("expense")}
-              className="h-11 flex-col gap-0.5 px-1 text-[10px]"
+              className="h-11 flex-col gap-0.5 px-1 text-[10px] bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground border border-border/60 shadow-none"
               size="lg"
             >
               <Receipt className="size-4" />
@@ -253,7 +304,7 @@ export function AppLayout() {
             <Button
               variant="secondary"
               onClick={() => openTopUp()}
-              className="h-11 flex-col gap-0.5 px-1 text-[10px]"
+              className="h-11 flex-col gap-0.5 px-1 text-[10px] bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground border border-border/60 shadow-none"
               size="lg"
             >
               <PiggyBank className="size-4" />
@@ -262,7 +313,7 @@ export function AppLayout() {
             <Button
               variant="secondary"
               onClick={() => setSheet("payday")}
-              className="h-11 flex-col gap-0.5 px-1 text-[10px]"
+              className="h-11 flex-col gap-0.5 px-1 text-[10px] bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground border border-border/60 shadow-none"
               size="lg"
             >
               <Wallet className="size-4" />
@@ -302,6 +353,7 @@ export function AppLayout() {
         txs={txs}
       />
     </div>
+    </SheetActionsCtx.Provider>
   )
 }
 

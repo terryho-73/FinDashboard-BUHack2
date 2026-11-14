@@ -72,14 +72,14 @@ export function HomeCalendarDock() {
                 onClick={() => setSelected(iso)}
                 className={cn(
                   "flex h-10 flex-col items-center justify-center rounded-xl text-[11px] font-semibold tabular-nums",
-                  isSelected && "bg-primary text-primary-foreground",
-                  !isSelected && isToday && "ring-1 ring-primary",
-                  !isSelected && !isToday && "bg-muted/50",
+                  isSelected && "bg-muted-foreground/25 text-foreground ring-1 ring-border",
+                  !isSelected && isToday && "ring-1 ring-border bg-muted/70",
+                  !isSelected && !isToday && "bg-muted/50 text-muted-foreground",
                 )}
               >
                 {dom}
                 <span className="mt-0.5 flex h-1 gap-0.5">
-                  {hasPay && <span className="size-1 rounded-full bg-primary-foreground/80" />}
+                  {hasPay && <span className="size-1 rounded-full bg-foreground/50" />}
                   {hasFest && <span className="size-1 rounded-full bg-destructive" />}
                   {hasTrip && <span className="size-1 rounded-full bg-secondary" />}
                 </span>
