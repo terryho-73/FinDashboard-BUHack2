@@ -399,3 +399,63 @@ Implement §14 gaps; state what is target vs done.
 > **Reliable mobile-first savings jars app** with manual tracking, virtual allocations, transparent monthly budgeting, and HK-specific payment channels — persisted in dev via collections API, ready to harden with auth, export, and optional PostgreSQL backend.
 
 Bank aggregation and real money movement remain **out of scope** until explicitly designed and approved.
+
+---
+
+## 20. Five-person team split (suggested ownership)
+
+Use this as the default work breakdown for BUHack2. One person = **one primary stream**; everyone reviews PRs that touch `schema.ts`, `finance.ts`, or `vite.config.ts`.
+
+**Integration rule:** merge to `main` only when `npm run dev`, `npm run build`, and `npm run lint` pass. Do not run `npm audit fix --force`.
+
+| Person | Role | Primary folders / files | Deliverables (MVP) | Depends on |
+|--------|------|---------------------------|--------------------|------------|
+| **P1 — Platform & data** | Backend / persistence | `schema.ts`, `vite.config.ts`, `package.json`, `server/db.ts`, `src/db.generated.ts`, `functions/` | Fix dev persistence (`vibes()` active under `npm run dev`); document `/api/*` in README; optional `@omg-dev/auth` wiring; export API or collection backup; deploy notes | — |
+| **P2 — Dashboard & navigation** | Core UI shell | `src/App.tsx`, `src/components/Charts.tsx`, `src/routes/*`, `index.html`, `public/icons/*` | Multi-section polish; optional TanStack routes (Activity, Goals list); demo-data banner; loading/empty/error states; piggy icon/branding consistency | P1 for live collections |
+| **P3 — Forms & money entry** | Input flows | `src/components/QuickSheets.tsx`, `src/components/ui/sheet.tsx`, related `ui/*` | Expense / top-up / payday / new jar / settings flows; validation & busy states; round-up UX; delete confirmations; no dead buttons | P1, P4 for field rules |
+| **P4 — Finance & insights** | Domain logic | `src/lib/finance.ts`, `src/lib/seed.ts` | Correct `summary`, forecast, cut-back, streak; Vitest on key functions; UI copy for assumptions (estimate, not guarantee); category/channel enums aligned with `schema.ts` | P1 schema enums |
+| **P5 — Language, quality & release** | i18n, a11y, QA | `src/lib/i18n.ts`, `src/lib/prefs.tsx`, `README.md`, `PLAN.md` (checklists), ESLint/Playwright setup | Full EN + 繁 for new strings; privacy mode on charts/tooltips/a11y labels; smoke E2E script for demo flow; final README + submission/demo script | P2–P4 UI stable |
+
+### Suggested week order (parallel)
+
+```text
+Week 1
+  P1: persistence works on every dev machine (priority)
+  P2 + P3: polish existing dashboard and sheets
+  P4: tests + finance edge cases
+  P5: i18n gaps + README accuracy
+
+Week 2 (before judging)
+  P1: export + auth spike OR Phase B decision doc
+  P2: optional CSV/import route shell (UI only) if P3 not doing import
+  P3: CSV import MVP (Papa Parse) OR hand off to P1 if server validation needed
+  P4: tie insights numbers to tested helpers
+  P5: E2E demo path + presentation deck / video
+```
+
+### Clear “not duplicate” boundaries
+
+| Topic | Owner | Others |
+|-------|--------|--------|
+| Change `schema.ts` fields | **P1** proposes; team agrees in chat | P3/P4 update types & forms after merge |
+| Change safe-to-spend formula | **P4** | P2 displays; P5 documents in UI strings |
+| New bottom sheets / forms | **P3** | Follow `AGENTS.md` |
+| New routes / layout | **P2** | — |
+| Copy EN/繁 | **P5** writes or reviews | P2/P3 add keys only with both locales |
+| `package.json` / shadcn pin | **P1** only | Everyone else files issues, no ad-hoc bumps |
+
+### Per-person definition of done
+
+- **P1:** Fresh clone → `npm install` → `npm run dev` → create jar → refresh → data still present; README backend section updated.
+- **P2:** Mobile + desktop usable; bottom nav does not cover content; demo banner if using seed.
+- **P3:** Every primary button in sheets submits or shows validation error; round-up path tested manually.
+- **P4:** `npm run test` (once added) passes for `finance.ts`; forecast/summary match manual spreadsheet spot-check.
+- **P5:** Demo checklist in README runs in &lt;5 min; hide amounts + 繁 in demo; no missing `dict` keys in console.
+
+### Optional sixth backlog (pick any owner)
+
+- CSV import (P3 + P1)
+- JSON export in Settings (P1 + P3)
+- Express + PostgreSQL Phase B (P1 leads, freeze scope early)
+
+Rename roles in your team chat (e.g. 志恒 = P4) but keep **one owner per row** to avoid merge conflicts.

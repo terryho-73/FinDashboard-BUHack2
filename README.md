@@ -1,136 +1,230 @@
-# PocketGoals HK — 香港青年儲蓄助手
+# Savings Jars HK / PocketGoals HK — 香港青年儲蓄助手
 
-Bilingual, mobile-first savings dashboard for university students, fresh graduates, and young professionals in Hong Kong.
+Bilingual, mobile-first **savings jar** dashboard for Hong Kong students and young professionals.  
+**Spec & roadmap:** [`PLAN.md`](PLAN.md) · **UI rules:** [`AGENTS.md`](AGENTS.md)
 
-**Repository status:** Specification and agent guidance live here; application code (`client/`, `server/`, `shared/`, `tests/`) is **not yet scaffolded**.
+> **Recording savings ≠ moving money.** Jars and round-ups are virtual tracking only—not bank or Octopus transfers.
 
-**Build specification:** [`PLAN.md`](PLAN.md) — milestones, API, data model, financial rules, testing, and contributor workflow.
+---
 
-## What this app does
+## Key features (what the app does today)
 
-PocketGoals HK helps users answer:
+| Area | What you get |
+|------|----------------|
+| **Saving jars** | Named goals (emoji, target HK$), progress rings, top-up, delete |
+| **Transactions** | Log **expense**, **income** (payday), **saving** (jar allocations) |
+| **Safe to spend** | Estimated **per day** and **per week** from income, rent/MPF, savings %, and this month’s spending |
+| **Cash-flow forecast** | 30-day balance chart, low-balance warning, “what if I buy X?” |
+| **Charts** | Month income vs expenses vs saved; 6-month net savings; spending by category |
+| **Insights** | “Invisible” small repeat spends, subscription-style recurring charges, cut-back simulator |
+| **Round-up** | Optional virtual spare change into a jar when logging expenses (HK$10 / HK$50) |
+| **Payday split** | Log salary and auto-split a % across all jars |
+| **Privacy** | Hide all HK$ amounts (header eye icon) |
+| **Language** | English ↔ 繁體 (header toggle) |
+| **Theme** | Light / dark mode |
+| **Demo data** | One-tap sample jars and transactions when the app is empty |
 
-1. **How much have I set aside?**
-2. **How much can I spend before my next income arrives?**
-3. **What small changes would help me reach my goals sooner?**
+**HK payment channels** on expenses: Octopus, FPS, PayMe, Alipay HK, credit, cash, bank, other.
 
-It tracks manually entered or imported transactions, organizes savings into **virtual goal buckets**, and explains spending in a friendly, non-judgmental way.
+---
 
-### Product boundaries
+## How to use the app
 
-| In scope (MVP) | Out of scope (initially) |
-|----------------|---------------------------|
-| Personal finance tracker | Bank or payment wallet |
-| Budgeting and savings planner | Real money transfers (Octopus, FPS, bank) |
-| Virtual goal allocations | Investment advice |
-| Optional AI explanations (later) | Auto-access to every HK financial account |
-
-**Recording savings is not moving money.** The first version uses simulated rules and virtual buckets—not claims of transferring funds through Octopus, FPS, or banks.
-
-## Technology stack
-
-| Layer | Choice |
-|-------|--------|
-| Frontend | Vue 3, **TypeScript**, Vite, Bootstrap 5.3, Vue Router, Pinia, Vue I18n, Chart.js, Papa Parse |
-| Backend | Node.js, **TypeScript**, Express, PostgreSQL (`pg` + SQL migrations), Zod |
-| Shared | Typed pure modules (`money`, `safeToSpend`, `roundUp`) in `shared/` |
-| Tests | Vitest (unit), Playwright (e2e) |
-| Defaults | HKD, `Asia/Hong_Kong`, English + Traditional Chinese |
-
-Use **Bootstrap CSS with Vue-controlled interactions** (avoid loading Bootstrap’s JS bundle alongside Vue-driven modals/dropdowns).
-
-## Planned repository layout
-
-```text
-├── README.md
-├── PLAN.md
-├── client/
-├── server/
-├── shared/
-├── docs/
-└── tests/
-```
-
-Full tree and module conventions: see [`PLAN.md` §4](PLAN.md).
-
-## MVP features
-
-- Onboarding, dashboard, saving buckets, expense logging
-- CSV import (preview, validate, confirm)
-- Accounts, categories, budget planner
-- Estimated **safe-to-spend** (with assumptions shown)
-- Privacy toggle (hide amounts), bilingual UI, light/dark theme
-- Export and account deletion
-
-## Architecture (summary)
-
-```text
-Vue (Bootstrap / Pinia / Router) ──HTTPS/JSON──► Express API ──► PostgreSQL
-                                                      └──► HKMA reference, optional AI (server-side)
-```
-
-Rules:
-
-1. No database logic in Vue components.
-2. Financial formulas in **shared pure functions**; backend authoritative for persisted calculations.
-3. **Demo mode** (labeled fictional data) vs **account mode** (auth + PostgreSQL)—never silently fall back to demo on API failure.
-4. AI (when added) uses an allowlisted tool set only—no unrestricted SQL or transfers.
-
-## Money and ledger rules (critical)
-
-- Store amounts as **integer minor units** (e.g. HK$38.50 → `3850`).
-- Distinguish income, expense, refund, **transfer between owned accounts**, card repayment, and **goal allocation**.
-- Payment method (Octopus, FPS, etc.) does **not** define transaction meaning.
-- Goal allocation moves tracked balance into a bucket—it is not income and not a bank transfer.
-
-Safe-to-spend (MVP): balance-based discretionary allowance divided by remaining days in the planning period, with explicit warnings for missing or stale data. Details in [`PLAN.md` §7](PLAN.md).
-
-## Development modes
-
-| Mode | Behavior |
-|------|----------|
-| Demo | Fictional seed data, no credentials, full UI flow, visible “Demo data” label |
-| Account | Session auth, PostgreSQL, ownership checks on every record |
-
-## Suggested build order
-
-See [`PLAN.md` §14](PLAN.md) for milestones 0–6 (UI prototype → financial logic → persistence → import → integrations → production).
-
-Do **not** block early milestones on bank aggregation.
-
-## Initial setup (when scaffolding)
-
-**Client:**
+### Run locally
 
 ```bash
-npm create vue@latest client
-# TypeScript: Yes, Router, Pinia, unit tests, Playwright if offered
-cd client && npm install
-npm install bootstrap@5.3 bootstrap-icons vue-i18n chart.js papaparse
+cd "/path/to/BUHack2"
+npm install          # requires shadcn@4.23.0 in package.json
 npm run dev
 ```
 
-**Server:**
+Open **http://localhost:5173** (or the Network URL shown in the terminal on your phone).
 
-```bash
-mkdir server && cd server
-npm init -y && npm pkg set type=module
-npm install express pg zod helmet express-rate-limit dotenv
-npm install -D typescript tsx @types/express @types/node
+> Do **not** run `npm audit fix --force` — it installs the wrong `shadcn` package and breaks CSS.
+
+### First visit
+
+1. If the screen is empty, tap **Load demo data** (seeds jars, settings, and sample transactions).
+2. Or open **Settings** (gear) and enter monthly income, rent, utilities, MPF, and savings %.
+
+### Header
+
+| Control | Action |
+|---------|--------|
+| **EN / 中** | Switch language |
+| **Eye** | Hide or show all money amounts |
+| **Sun / Moon** | Dark mode |
+| **Gear** | Budget settings, round-up, **Clear all data** |
+
+### Bottom bar (main actions)
+
+| Button | Action |
+|--------|--------|
+| **Log expense** | Title, amount, date, category, channel, recurring; optional round-up to a jar |
+| **Top up jar** | Add a **saving** transaction to a chosen jar |
+| **Payday** | Record income; optionally split savings % across jars |
+
+### Dashboard (scroll)
+
+- **Total saved** and safe-to-spend today / this week  
+- **Savings streak** (weeks with at least one save)  
+- **Forecast** card and purchase simulator  
+- **Jar cards** — swipe horizontally; **+ New jar**  
+- **Charts** and **recent activity** (delete rows with trash icon)  
+- **Insights** — habits, subscriptions, cut-back slider  
+
+### Typical flow
+
+1. Demo or settings → 2. Log expenses / payday → 3. Top up jars → 4. Check safe-to-spend and insights → 5. Toggle 繁 / hide amounts for screenshots.
+
+---
+
+## Is the backend working?
+
+**Short answer:** There is **no separate Express/PostgreSQL app** in this repo. Persistence is meant to come from the **`@omg-dev` platform** (collections API + SQLite in development), **not** a hand-written `server/src` API.
+
+| Layer | Status | Notes |
+|-------|--------|--------|
+| **Custom Express + PostgreSQL** | **Not implemented** | Future “Phase B” in `PLAN.md` |
+| **`@omg-dev` collection API** (`/api/goals`, `/api/transactions`, `/api/settings`) | **Conditional in dev** | Provided by `@omg-dev/vite-plugin` (`vibes()`) |
+| **Current `npm run dev` script** | **May disable API** | Sets `NODE_RUNTIME=node`, and `vite.config.ts` **skips** `vibes()` when that is set → `/api/*` may **not** be served locally |
+
+**How to tell:** With dev running, add a jar or expense. Refresh the page. If data **disappears**, the collection API is not active (or failed). If data **remains**, dev persistence is working.
+
+**Fix to try (persistence in local dev):** run Vite **with** the vibes plugin—for example remove `NODE_RUNTIME=node` from the `dev` script, or adjust `vite.config.ts` so `vibes()` always loads during `npm run dev`. Re-test `/api/goals` in the browser Network tab.
+
+**Production:** Depends on hosting that supports the Omg/Vibes stack (`npm run build` + their deploy path). There is **no** documented self-hosted Postgres backup in this repo yet.
+
+---
+
+## Program structure (repository)
+
+```text
+BUHack2/
+├── README.md                 # This file — usage, backend status, gaps
+├── PLAN.md                   # Roadmap, milestones, Phase B (Express/Postgres)
+├── AGENTS.md                 # shadcn / Tailwind UI rules (do not break)
+├── package.json
+├── package-lock.json         # Commit this; pin shadcn@4.23.0
+├── schema.ts                 # Data model: goals, transactions, settings
+├── vite.config.ts            # Vite+, React, Tailwind, TanStack Router, vibes plugin
+├── index.html
+├── icons/
+│   └── piggyBank.jpg         # Source for app icons
+├── public/
+│   ├── favicon-32.png
+│   ├── favicon-192.png
+│   └── icons/                # PWA / apple-touch icons (from piggyBank)
+├── server/
+│   └── db.ts                 # Drizzle read helper for @omg-dev (not Express app)
+├── src/
+│   ├── main.tsx              # React entry
+│   ├── App.tsx               # Main dashboard UI
+│   ├── index.css             # Tailwind + design tokens
+│   ├── routeTree.gen.ts      # Generated — do not edit
+│   ├── routes/
+│   │   ├── __root.tsx        # PrefsProvider (lang, theme, privacy)
+│   │   └── index.tsx         # Route "/" → App
+│   ├── components/
+│   │   ├── Charts.tsx
+│   │   ├── QuickSheets.tsx   # Expense, top-up, payday, goal, settings sheets
+│   │   └── ui/               # shadcn primitives (vendored — do not hand-edit)
+│   ├── lib/
+│   │   ├── finance.ts        # Budget math, insights, types
+│   │   ├── i18n.ts           # EN / 繁 strings
+│   │   ├── prefs.tsx         # Client preferences + localStorage
+│   │   ├── seed.ts           # Demo data loader
+│   │   └── utils.ts
+│   ├── db.generated.ts         # Collection bindings → /api/*
+│   └── db.drizzle.ts
+├── functions/                # Placeholder for serverless hooks
+└── dist/                     # Build output (gitignored)
 ```
 
-Configure `tsconfig.json` and run the API with `tsx` in development (see [`PLAN.md` §2](PLAN.md) TypeScript conventions).
+**Ignored locally (not in git):** `node_modules/`, `.cursor/`, `.vibes/`, `dist/`, `.env*`
 
-Environment examples are documented in [`PLAN.md` §10.2](PLAN.md). Never put private API keys in `VITE_*` variables.
+---
 
-## Working with Cursor
+## Technology stack (actual)
 
-Project skill for implementers and agents: [`.cursor/skills/pocketgoals-hk/SKILL.md`](.cursor/skills/pocketgoals-hk/SKILL.md).
+| Layer | Choice |
+|-------|--------|
+| Frontend | React 19, TypeScript, Vite+, TanStack Router |
+| Styling | Tailwind v4, shadcn 4.23.0 |
+| Data client | `@omg-dev/sdk` (`useCollection`) |
+| Schema | `@omg-dev/schema` (`schema.ts`) |
+| Dev persistence | `@omg-dev/vite-plugin` + SQLite (when vibes plugin is active) |
+| Lint | ESLint |
 
-## Hackathon / course context
+---
 
-This repo (**BUHack2**) is the home for **PocketGoals HK** implementation work.
+## What’s implemented vs missing
+
+### Implemented (~60% competition demo)
+
+- [x] Single-page savings dashboard  
+- [x] Jars, expenses, payday, top-up, settings  
+- [x] Safe-to-spend (monthly model), forecast, insights  
+- [x] Bilingual UI, dark mode, hide amounts  
+- [x] Demo seed  
+- [x] App icons from `icons/piggyBank.jpg`  
+- [x] `npm run dev` / `npm run build` (with correct `shadcn` version)  
+
+### Missing or incomplete (priority fixes)
+
+| Item | Severity | Notes |
+|------|----------|--------|
+| **Reliable local `/api` in dev** | **High** | `NODE_RUNTIME=node` disables `vibes()` — see [Backend](#is-the-backend-working) |
+| **User accounts / login** | High | No multi-user auth (`@omg-dev/auth` not wired) |
+| **CSV import UI** | Medium | `source: "csv"` exists in schema only |
+| **Export data (JSON/CSV)** | Medium | Only “Clear all” in settings |
+| **Separate routes** (Goals, Activity, Import) | Low | Only `/` today |
+| **Express + PostgreSQL (Phase B)** | Optional | Per `PLAN.md` if rubric requires it |
+| **Automated tests** | Medium | No Vitest/Playwright scripts in `package.json` |
+| **Minor-unit ledger rules** | Medium | Whole HKD amounts; no transfer/refund types |
+| **Production deploy docs** | Medium | Omg/Vibes or custom host TBD |
+| **README/PLAN sync** | Done | This README matches current code |
+
+### Dependency hygiene
+
+| Issue | Action |
+|-------|--------|
+| Wrong `shadcn@1.0.0` | Keep **`"shadcn": "4.23.0"`** in `package.json` |
+| `npm audit fix --force` | **Avoid** — breaks shadcn CSS import |
+| `minimatch` audit noise | Dev-only ESLint chain; optional `overrides` in `package.json` |
+
+---
+
+## Scripts
+
+| Command | Purpose |
+|---------|---------|
+| `npm install` | Install dependencies |
+| `npm run dev` | Development server (port 5173) |
+| `npm run build` | Production build → `dist/` |
+| `npm run preview` | Serve `dist/` locally |
+| `npm run lint` | ESLint |
+
+---
+
+## Architecture (target data flow)
+
+```text
+Browser (React)
+    → useCollection → /api/goals | /api/transactions | /api/settings
+    → @omg-dev server (when vibes plugin active)
+    → SQLite (dev)
+```
+
+Future **Phase B** (optional): React → your Express API → PostgreSQL — see `PLAN.md` §14.
+
+---
+
+## Course / hackathon
+
+**BUHack2** — HKBU hackathon savings dashboard.  
+Product name in UI: **Savings Jars HK**; documentation may still say **PocketGoals HK**.
 
 ## License
 
-TBD—add before public distribution.
+TBD.
