@@ -46,5 +46,3 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
 
   return <PrefsContext.Provider value={value}>{children}</PrefsContext.Provider>
 }
-
-export { usePrefs } from "@/lib/prefs-context"
