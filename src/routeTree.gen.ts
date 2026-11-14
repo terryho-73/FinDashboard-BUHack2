@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as GoalsRouteImport } from './routes/goals'
 import { Route as ImportRouteImport } from './routes/import'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -32,6 +33,9 @@ const GoalsRoute = GoalsRouteImport.update({
 const ImportRoute = ImportRouteImport.update({
   id: '/import',
   path: '/import',
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -40,12 +44,14 @@ export interface FileRoutesByFullPath {
   '/activity': typeof ActivityRoute
   '/goals': typeof GoalsRoute
   '/import': typeof ImportRoute
+  '/onboarding': typeof OnboardingRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/activity': typeof ActivityRoute
   '/goals': typeof GoalsRoute
   '/import': typeof ImportRoute
+  '/onboarding': typeof OnboardingRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +59,14 @@ export interface FileRoutesById {
   '/activity': typeof ActivityRoute
   '/goals': typeof GoalsRoute
   '/import': typeof ImportRoute
+  '/onboarding': typeof OnboardingRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/activity' | '/goals' | '/import'
+  fullPaths: '/' | '/activity' | '/goals' | '/import' | '/onboarding'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/activity' | '/goals' | '/import'
-  id: '__root__' | '/' | '/activity' | '/goals' | '/import'
+  to: '/' | '/activity' | '/goals' | '/import' | '/onboarding'
+  id: '__root__' | '/' | '/activity' | '/goals' | '/import' | '/onboarding'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +74,7 @@ export interface RootRouteChildren {
   ActivityRoute: typeof ActivityRoute
   GoalsRoute: typeof GoalsRoute
   ImportRoute: typeof ImportRoute
+  OnboardingRoute: typeof OnboardingRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -97,6 +105,11 @@ declare module '@tanstack/react-router' {
       path: '/import'
       fullPath: '/import'
       preLoaderRoute: typeof ImportRouteImport
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -107,6 +120,7 @@ const rootRouteChildren: RootRouteChildren = {
   ActivityRoute: ActivityRoute,
   GoalsRoute: GoalsRoute,
   ImportRoute: ImportRoute,
+  OnboardingRoute: OnboardingRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

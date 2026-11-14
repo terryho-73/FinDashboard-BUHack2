@@ -1,4 +1,4 @@
-import { addDays, todayISO, type Goal, type Settings, type Tx } from "@/lib/finance"
+import { addDays, calculateMPF, todayISO, type Goal, type Settings, type Tx } from "@/lib/finance"
 
 type Api = {
   addGoal: (g: Omit<Goal, "id">) => Promise<{ id: string }>
@@ -28,7 +28,7 @@ export async function seedDemo(api: Api) {
     monthly_income: 22000,
     rent: 6000,
     utilities: 800,
-    mpf: 1500,
+    mpf: calculateMPF(22000),
     save_pct: 20,
     round_to: 10,
     roundup_on: true,
