@@ -1,27 +1,12 @@
 import { useEffect, useMemo, useState } from "react"
 import { useCollection } from "@omg-dev/sdk"
-import {
-  Eye,
-  EyeOff,
-  Flame,
-  Moon,
-  PiggyBank,
-  Plus,
-  Repeat,
-  Settings as SettingsIcon,
-  Sun,
-  Trash2,
-  Wallet,
-  Receipt,
-  AlertTriangle,
-  CheckCircle2,
-  Mic,
-} from "lucide-react"
+import { Flame, PiggyBank, Plus, Repeat, Receipt, Trash2, Wallet, AlertTriangle, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { usePrefs } from "@/lib/prefs-context"
+import { useSheetActions } from "@/components/AppLayout"
 import { format } from "@/lib/i18n"
 import {
   categoryTotals,
@@ -47,23 +32,14 @@ import {
 import { cn } from "@/lib/utils"
 import { useNavigate } from "@tanstack/react-router"
 import { ProgressRing, NetLine, CategoryBars, FlowBars } from "@/components/Charts"
-import {
-  ExpenseSheet,
-  GoalSheet,
-  PaydaySheet,
-  SettingsSheet,
-  TopUpSheet,
-  type Api,
-} from "@/components/QuickSheets"
-import { QuickLogSheet } from "@/components/QuickLog"
+import { type Api } from "@/components/QuickSheets"
 import { WeeklyChallenge } from "@/components/WeeklyChallenge"
 
 const SAFETY_BUFFER = 1000
 
-type SheetKey = "quicklog" | "expense" | "topup" | "payday" | "goal" | "settings" | null
-
 export default function App() {
-  const { t, lang, setLang, dark, setDark, hidden, setHidden } = usePrefs()
+  const { t, lang, hidden } = usePrefs()
+  const { openTopUp, openNewGoal, openPayday } = useSheetActions()
   const navigate = useNavigate()
   const goalsQ = useCollection<Goal>({ collection: "goals", api: "/api/goals" })
   const txQ = useCollection<Tx>({ collection: "transactions", api: "/api/transactions" })
@@ -83,8 +59,6 @@ export default function App() {
   const settings = settingsGone ? null : (localSettings ?? settingsQ.data[0] ?? null)
   const today = todayISO()
 
-  const [sheet, setSheet] = useState<SheetKey>(null)
-  const [topUpJar, setTopUpJar] = useState<string | undefined>(undefined)
   const [skip, setSkip] = useState(1)
   const [habitIdx, setHabitIdx] = useState(0)
   const [cutGoalId, setCutGoalId] = useState<string | null>(null)
@@ -216,22 +190,6 @@ export default function App() {
   const monthLabel = (key: string) =>
     new Date(`${key}-01T00:00:00`).toLocaleString(lang === "zh" ? "zh-HK" : "en", { month: "short" })
 
-  async function clearAll() {
-    for (const t of txs) await api.removeTx(t.id)
-    for (const g of goals) await api.removeGoal(g.id)
-    if (settings) {
-      await settingsQ.remove(settings.id)
-      setSettingsGone(true)
-      setLocalSettings(null)
-    }
-    setSheet(null)
-  }
-
-  function openTopUp(jarId?: string) {
-    setTopUpJar(jarId)
-    setSheet("topup")
-  }
-
   function dayLabel(iso: string) {
     if (iso === today) return t.today
     if (iso === addOne(today, -1)) return t.yesterday
@@ -239,61 +197,15 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-svh bg-background text-foreground">
-      {/* Header: bilingual toggle, privacy eye, dark mode, settings */}
-      <header className="sticky top-0 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
-        <div className="mx-auto flex w-full max-w-md items-center gap-2 px-4 py-3">
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-base font-semibold tracking-tight">{t.appName}</h1>
-            <div className="flex min-w-0 items-center gap-1.5">
-              {isDemo && <Badge variant="secondary" className="shrink-0">{t.demoBadge}</Badge>}
-              <p className="truncate text-xs text-muted-foreground">{t.tagline}</p>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setLang(lang === "en" ? "zh" : "en")}
-            aria-label={t.lang}
-            className="h-9 px-2.5 text-xs font-medium"
-          >
-            {t.lang}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setHidden(!hidden)}
-            aria-label={hidden ? t.show : t.hide}
-            aria-pressed={hidden}
-            className="size-9"
-          >
-            {hidden ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setDark(!dark)}
-            aria-label={t.darkMode}
-            aria-pressed={dark}
-            className="size-9"
-          >
-            {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setSheet("settings")}
-            aria-label={t.settingsTitle}
-            className="size-9"
-          >
-            <SettingsIcon className="size-4" />
-          </Button>
-        </div>
-      </header>
-
-      <main className="mx-auto flex w-full max-w-md flex-col gap-5 px-4 pt-4 pb-40">
+    <div className="flex flex-col gap-5">
         {loading && goals.length === 0 && txs.length === 0 && (
           <p className="py-10 text-center text-sm text-muted-foreground">{t.emptyLoading}</p>
+        )}
+
+        {isDemo && (
+          <div className="flex justify-center">
+            <Badge variant="secondary">{t.demoBadge}</Badge>
+          </div>
         )}
 
         {/* 1. Hero status: total saved + safe-to-spend */}
@@ -347,8 +259,8 @@ export default function App() {
             </div>
           </div>
           {!hasIncome ? (
-            <Button variant="secondary" onClick={() => setSheet("payday")} className="h-10 gap-2">
-              <Wallet className="size-4" /> {t.payday}
+            <Button variant="secondary" onClick={() => openPayday()} className="h-10 gap-2">
+              {t.payday}
             </Button>
           ) : (
           <>
@@ -406,7 +318,7 @@ export default function App() {
               <h2 className="text-base font-semibold">{t.goalsTitle}</h2>
               {goals.length > 0 && <p className="text-xs text-muted-foreground">{t.goalsHint}</p>}
             </div>
-            <Button variant="outline" size="sm" onClick={() => setSheet("goal")} className="h-9 shrink-0 gap-1">
+            <Button variant="outline" size="sm" onClick={() => openNewGoal()} className="h-9 shrink-0 gap-1">
               <Plus className="size-4" /> {t.newGoal}
             </Button>
           </div>
@@ -687,59 +599,6 @@ export default function App() {
         </section>
 
         <p className="text-center text-xs text-muted-foreground">{t.footnote}</p>
-      </main>
-
-      {/* Bottom action bar — thumb-reachable quick actions */}
-      <nav
-        aria-label="Quick actions"
-        className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-3 backdrop-blur"
-      >
-        <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-2 px-4">
-          <Button onClick={() => setSheet("quicklog")} className="h-12 flex-col gap-0.5 text-xs" size="lg">
-            <Mic className="size-4" />
-            {t.quickLog}
-          </Button>
-          <Button variant="secondary" onClick={() => setSheet("expense")} className="h-12 flex-col gap-0.5 text-xs" size="lg">
-            <Receipt className="size-4" />
-            {t.logExpense}
-          </Button>
-          <Button variant="secondary" onClick={() => openTopUp()} className="h-12 flex-col gap-0.5 text-xs" size="lg">
-            <PiggyBank className="size-4" />
-            {t.topUp}
-          </Button>
-          <Button variant="secondary" onClick={() => setSheet("payday")} className="h-12 flex-col gap-0.5 text-xs" size="lg">
-            <Wallet className="size-4" />
-            {t.payday}
-          </Button>
-        </div>
-      </nav>
-
-      <QuickLogSheet
-        open={sheet === "quicklog"}
-        onOpenChange={(v) => setSheet(v ? "quicklog" : null)}
-        api={api}
-        safeToday={s.perDay}
-        pacePerDay={pace}
-        focusGoal={focusGoal}
-        onOpenForm={() => setSheet("expense")}
-      />
-      <ExpenseSheet open={sheet === "expense"} onOpenChange={(v) => setSheet(v ? "expense" : null)} api={api} />
-      <TopUpSheet
-        key={topUpJar ?? "none"}
-        open={sheet === "topup"}
-        onOpenChange={(v) => setSheet(v ? "topup" : null)}
-        api={api}
-        initialJarId={topUpJar}
-      />
-      <PaydaySheet open={sheet === "payday"} onOpenChange={(v) => setSheet(v ? "payday" : null)} api={api} />
-      <GoalSheet open={sheet === "goal"} onOpenChange={(v) => setSheet(v ? "goal" : null)} api={api} />
-      <SettingsSheet
-        key={settings?.id ?? "new"}
-        open={sheet === "settings"}
-        onOpenChange={(v) => setSheet(v ? "settings" : null)}
-        api={api}
-        onClear={clearAll}
-      />
     </div>
   )
 }

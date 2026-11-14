@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { dict, type Lang } from "@/lib/i18n"
 import { PrefsContext, type Prefs } from "@/lib/prefs-context"
 
+export { usePrefs } from "@/lib/prefs-context"
+
 const KEY = "savings-jars-prefs"
 
 function readPrefs(): { lang: Lang; dark: boolean; hidden: boolean } {

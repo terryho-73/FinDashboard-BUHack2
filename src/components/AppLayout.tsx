@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router"
 import {
   Eye,
@@ -15,6 +15,7 @@ import {
   AlertCircle,
   Loader2,
   FileUp,
+  Mic,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { BottomNav } from "@/components/ui/bottom-nav"
@@ -30,9 +31,11 @@ import {
   SettingsSheet,
   TopUpSheet,
 } from "@/components/QuickSheets"
+import { QuickLogSheet } from "@/components/QuickLog"
 import { HomeCalendarDock } from "@/components/HomeCalendarDock"
+import { savingPacePerDay, summary, todayISO, type Goal } from "@/lib/finance"
 
-type SheetKey = "expense" | "topup" | "payday" | "goal" | "settings" | null
+type SheetKey = "quicklog" | "expense" | "topup" | "payday" | "goal" | "settings" | null
 type NavId = "home" | "activity" | "goals" | "import"
 
 const DEMO_BANNER_KEY = "pocketgoals-demo-banner-dismissed"
@@ -40,6 +43,10 @@ const DEMO_BANNER_KEY = "pocketgoals-demo-banner-dismissed"
 type SheetActions = {
   openTopUp: (jarId?: string) => void
   openNewGoal: () => void
+  openExpense: () => void
+  openPayday: () => void
+  openSettings: () => void
+  openQuickLog: () => void
 }
 
 const SheetActionsCtx = createContext<SheetActions | null>(null)
@@ -53,8 +60,13 @@ export function useSheetActions() {
 export function AppLayout() {
   const navigate = useNavigate()
   const { t, lang, setLang, dark, setDark, hidden, setHidden } = usePrefs()
-  const { loading, empty, error, hasDemoData, api, refreshAll, clearAll } = useSavingsData()
+  const { loading, empty, error, hasDemoData, api, refreshAll, clearAll, goals, txs, settings } =
+    useSavingsData()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const today = todayISO()
+  const spendSummary = useMemo(() => summary(txs, settings, today), [txs, settings, today])
+  const pacePerDay = useMemo(() => savingPacePerDay(txs, settings, today), [txs, settings, today])
+  const focusGoal: Goal | null = goals[0] ?? null
 
   const [sheet, setSheet] = useState<SheetKey>(null)
   const [topUpJar, setTopUpJar] = useState<string | undefined>(undefined)
@@ -178,8 +190,8 @@ export function AppLayout() {
         className={cn(
           "mx-auto flex w-full max-w-md flex-col gap-5 px-4 pt-4",
           pathname === "/"
-            ? "pb-[calc(20rem+env(safe-area-inset-bottom))]"
-            : "pb-[calc(10.5rem+env(safe-area-inset-bottom))]",
+            ? "pb-[calc(21rem+env(safe-area-inset-bottom))]"
+            : "pb-[calc(9.5rem+env(safe-area-inset-bottom))]",
         )}
       >
         {showBlockingLoad && (
@@ -205,36 +217,66 @@ export function AppLayout() {
           value={{
             openTopUp,
             openNewGoal: () => setSheet("goal"),
+            openExpense: () => setSheet("expense"),
+            openPayday: () => setSheet("payday"),
+            openSettings: () => setSheet("settings"),
+            openQuickLog: () => setSheet("quicklog"),
           }}
         >
           <Outlet />
         </SheetActionsCtx.Provider>
       </main>
 
-      <HomeCalendarDock />
-
-      <nav
-        aria-label={t.quickActionsNav}
-        className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-30 border-t bg-background/95 pt-3 backdrop-blur"
-      >
-        <div className="mx-auto grid w-full max-w-md grid-cols-3 gap-2 px-4 pb-2">
-          <Button onClick={() => setSheet("expense")} className="h-12 flex-col gap-0.5 text-xs" size="lg">
-            <Receipt className="size-4" />
-            {t.logExpense}
-          </Button>
-          <Button variant="secondary" onClick={() => openTopUp()} className="h-12 flex-col gap-0.5 text-xs" size="lg">
-            <PiggyBank className="size-4" />
-            {t.topUp}
-          </Button>
-          <Button variant="secondary" onClick={() => setSheet("payday")} className="h-12 flex-col gap-0.5 text-xs" size="lg">
-            <Wallet className="size-4" />
-            {t.payday}
-          </Button>
-        </div>
-      </nav>
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 pb-[calc(4.75rem+env(safe-area-inset-bottom))]">
+        {pathname === "/" && <HomeCalendarDock />}
+        <nav aria-label={t.quickActionsNav} className="pt-2">
+          <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-1.5 px-4 pb-2">
+            <Button onClick={() => setSheet("quicklog")} className="h-11 flex-col gap-0.5 px-1 text-[10px]" size="lg">
+              <Mic className="size-4" />
+              {t.quickLog}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setSheet("expense")}
+              className="h-11 flex-col gap-0.5 px-1 text-[10px]"
+              size="lg"
+            >
+              <Receipt className="size-4" />
+              {t.logExpense}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => openTopUp()}
+              className="h-11 flex-col gap-0.5 px-1 text-[10px]"
+              size="lg"
+            >
+              <PiggyBank className="size-4" />
+              {t.topUp}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setSheet("payday")}
+              className="h-11 flex-col gap-0.5 px-1 text-[10px]"
+              size="lg"
+            >
+              <Wallet className="size-4" />
+              {t.payday}
+            </Button>
+          </div>
+        </nav>
+      </div>
 
       <RouteBottomNav active={navActive()} onNavigate={(to) => navigate({ to })} />
 
+      <QuickLogSheet
+        open={sheet === "quicklog"}
+        onOpenChange={(v) => setSheet(v ? "quicklog" : null)}
+        api={api}
+        safeToday={spendSummary.perDay}
+        pacePerDay={pacePerDay}
+        focusGoal={focusGoal}
+        onOpenForm={() => setSheet("expense")}
+      />
       <ExpenseSheet open={sheet === "expense"} onOpenChange={(v) => setSheet(v ? "expense" : null)} api={api} />
       <TopUpSheet
         key={topUpJar ?? "none"}

@@ -5,7 +5,7 @@
   "type": "module",
 "scripts": {
   "dev": "cross-env NODE_RUNTIME=node node ./node_modules/vite-plus/dist/bin.js dev --host 0.0.0.0",
-  "build": "node ./node_modules/vite-plus/dist/bin.js build",
+  "build": "cross-env NODE_RUNTIME=node VIBES_LOCAL_DB=false node ./node_modules/vite-plus/dist/bin.js build",
   "lint": "eslint .",
   "preview": "vite preview"
 },
@@ -39,7 +39,6 @@
     "@omg-dev/vite-plugin": "^0.4.60",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/router-plugin": "^1.168.48",
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
@@ -56,6 +55,9 @@
     "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0",
     "vite-plus": "1.4.0",
     "ws": "^8.18.3"
+  },
+  "engines": {
+    "node": ">=22 <26"
   },
   "overrides": {
     "nanoid": "^3.3.18",
