@@ -7,7 +7,7 @@
 
 Treat features as **implemented only when verifiable in the repo**; sections marked **Target** describe the next evolution (optional custom backend).
 
-**Estimated progress (demo track):** ~**60%** of a competition-ready product; ~**35%** of the original full-stack PLAN MVP (auth, CSV, multi-account ledger, PostgreSQL).
+**Estimated progress (demo track):** ~**78%** of a competition-ready product; ~**45%** of the original full-stack PLAN MVP (auth, multi-account ledger, PostgreSQL).
 
 ---
 
@@ -166,12 +166,15 @@ Maintained in `src/lib/i18n.ts` (`dict.en` / `dict.zh`). Extend both when adding
 
 `PrefsProvider` `hidden` flag; all amounts via `money(n, hidden)`.
 
-### 5.5 Target UI gaps
+### 5.5 UI gaps (updated)
 
-- Dedicated routes: Goals list, Activity, Import, Onboarding
-- Explicit **“Demo data”** banner when using seed
-- CSV import screen
-- Export download
+| Item | Status |
+|------|--------|
+| Routes: `/activity`, `/goals`, `/import`, `/onboarding` | ✅ |
+| **Demo data** banner when `source: "demo"` | ✅ |
+| CSV import UI (`ImportView`, template, preview, confirm) | ✅ client-side; no server import-batch API |
+| JSON / CSV export | ✅ Settings JSON (`/api/export` or offline) + CSV (`csv-export.ts`) |
+| Rename PocketGoals vs Savings Jars everywhere | 🟡 UI uses Savings Jars; spec name still PocketGoals |
 
 ---
 
@@ -250,9 +253,15 @@ Auth (`/api/auth/*`), `/api/dashboard`, paginated `/api/transactions`, `/api/goa
 
 ---
 
-## 9. CSV import (target)
+## 9. CSV import
 
-Canonical CSV template, Papa Parse preview, server revalidation, idempotent confirm — **not implemented** (`source: "csv"` reserved on transactions).
+| Piece | Status |
+|-------|--------|
+| Template `public/templates/transactions-template.csv` | ✅ |
+| Papa Parse + `analyzeCsv` preview, duplicate detection | ✅ `src/lib/csv-import.ts` |
+| Import UI on `/import` | ✅ |
+| Vitest on validation rules | ✅ `csv-import.test.ts` (19 cases; 1 edge-case fail on HK$ thousands) |
+| Server revalidation / import_batches / idempotent API confirm | ❌ Phase B / P1 target |
 
 ---
 
@@ -266,6 +275,7 @@ Canonical CSV template, Papa Parse preview, server revalidation, idempotent conf
 | `npm run build` | Production build |
 | `npm run lint` | ESLint |
 | `npm run preview` | Preview `dist/` |
+| `npm run test` | Vitest (`csv-import.test.ts`) |
 
 ### 10.2 Critical dependencies
 
@@ -310,29 +320,29 @@ Read-only tools over app data (`getSpendingSummary`, `getGoalProgress`, `getSafe
 
 Vite+, React, TS, TanStack Router, Tailwind/shadcn, ESLint, `schema.ts`, dev server.
 
-### M1 — Dashboard UX ✅ Mostly done
+### M1 — Dashboard UX ✅ Done
 
-Single-page dashboard, sheets, charts, EN/繁, dark, hide amounts, demo seed, bottom actions.
+Dashboard, sheets, charts, EN/繁, dark, hide amounts, demo seed, bottom nav, routes, demo banner, onboarding, calendar dock, Quick log.
 
-**Gaps:** multi-route nav; demo banner; rename consistency PocketGoals vs Savings Jars.
+**Remaining polish:** product name consistency (PocketGoals vs Savings Jars).
 
 ### M2 — Financial logic 🟡 Partial
 
-`finance.ts` powers UI; no Vitest suite; simplified monthly model (not full ledger).
+`finance.ts` powers UI; Vitest only on CSV helpers so far; simplified monthly model (not full ledger).
 
-**Next:** unit tests for `spareChange`, `summary`, `cutBack`; document assumptions in UI copy.
+**Next:** unit tests for `spareChange`, `summary`, `cutBack`; stronger “estimate” copy EN + 繁.
 
 ### M3 — Persistence 🟡 Partial (platform)
 
-Collections persist in dev via omg/SQLite. No auth, no Postgres, no export.
+Dev SQLite + `/api/*` ✅; JSON/CSV export ✅; Railway static deploy + **browser offline fallback** (`data-backend.tsx`, `offline-store.ts`, `railway.toml`).
 
-**Next:** enable platform auth if available; JSON/CSV export; hosted deploy docs.
+**Next:** optional auth; shared cloud DB if judges require sync across devices.
 
-### M4 — Import & hardening ⬜ Not done
+### M4 — Import & hardening 🟡 Partial
 
-CSV UI, duplicate review, data export endpoint.
+CSV import UI + client validation ✅; server-side import pipeline ❌.
 
-**Partial credit:** insights (subscriptions, invisible spend, cut-back) already in UI.
+**Also done:** insights (subscriptions, invisible spend, cut-back).
 
 ### M5–M6 — Integrations & production ⬜ Not done
 
@@ -348,7 +358,8 @@ Only if required: add `server/src` Express app, replace `useCollection` with typ
 
 | Layer | Status |
 |-------|--------|
-| `npm run lint` | Available |
+| `npm run lint` | Available (13 known ESLint errors — mostly react-refresh) |
+| Vitest on `csv-import.ts` | ✅ `npm run test` |
 | Vitest on `finance.ts` | Not set up |
 | Playwright E2E | Not set up |
 | Security / import tests | Phase B |
@@ -386,8 +397,8 @@ Implement §14 gaps; state what is target vs done.
 
 | Version | Status |
 |---------|--------|
-| **Current** | Jars, txs, budget summary, forecast, round-up, insights, bilingual, privacy |
-| **v1.1** | CSV import, export, demo label, Vitest on finance |
+| **Current** | Jars, txs, budget summary, forecast, round-up, insights, bilingual, privacy, CSV import/export (client), offline Railway mode |
+| **v1.1** | Vitest on `finance.ts`, fix remaining CSV edge case, demo label polish |
 | **v1.2** | Auth + multi-user (platform or Phase B) |
 | **v2** | Streak polish, group challenges, HKMA widget, AI coach |
 | **v3** | Bank integrations (conditional) |
@@ -466,7 +477,7 @@ Rename roles in your team chat (e.g. 志恒 = P4) but keep **one owner per row**
 
 **Legend:** `[x]` done in repo · `[ ]` not started or incomplete · `[-]` in progress (owner marks when started)
 
-**Last reviewed:** 2026-11-14 · **Overall demo:** ~65% (local save/load works on `npm run dev`)
+**Last reviewed:** 2026-11-15 · **Overall demo:** ~78% (`npm run dev` SQLite + Railway static with browser fallback)
 
 Update checkboxes in PRs that belong to that owner. Do not tick another person’s items without their review.
 
@@ -483,7 +494,7 @@ Update checkboxes in PRs that belong to that owner. Do not tick another person�
 - [x] `package.json` deps: `node:sqlite` (built-in), `ws`
 - [ ] `@omg-dev/auth` / multi-user (optional MVP)
 - [ ] Phase B Express + PostgreSQL decision or spike doc
-- [ ] Production API strategy (static `dist/` + separate host)
+- [x] Production API strategy — static `dist/` on Railway; probe `/api` → `offline-store` localStorage when no JSON API (`data-backend.tsx`, `railway.toml`)
 
 **P1 sign-off check:** `npm install` → `npm run dev` → see `[pocketgoals]` log → create jar → refresh → jar persists.
 
@@ -499,8 +510,9 @@ Update checkboxes in PRs that belong to that owner. Do not tick another person�
 - [x] App title + favicons (`index.html`, `public/*`, piggy source)
 - [x] Demo-data banner when `source: "demo"` rows present
 - [x] Explicit loading / error UI when `useCollection` returns `error` (not only “Loading…”)
-- [x] Optional routes: `/activity`, `/goals`, `/import` (file-based routes)
+- [x] Optional routes: `/activity`, `/goals`, `/import`, `/onboarding` (file-based routes)
 - [x] Bottom nav safe-area / overlap QA on small phones
+- [x] `AppLayout` shell — calendar dock, Quick log entry, shared `SavingsDataProvider`
 
 **P2 sign-off check:** Scroll full page on mobile width; jars swipe; no content hidden behind bottom bar.
 
@@ -512,11 +524,11 @@ Update checkboxes in PRs that belong to that owner. Do not tick another person�
 - [x] Validation (disabled submit until amount/title rules met)
 - [x] Round-up chips when settings allow
 - [x] Delete confirmations for jar / transaction
-- [x] Settings → JSON export button (opens `/api/export`)
-- [x] Clear all data flow
-- [ ] User-visible error toast/message when `POST /api/*` fails (network down)
-- [ ] CSV import sheet + file picker (schema `source: "csv"`)
-- [ ] Busy state blocks double-submit on all sheets (audit payday/top-up)
+- [x] Settings → JSON export (`downloadApiBackup` / offline fallback) + CSV export (`exportTransactionsToCsv`)
+- [x] Clear all data flow (single button in settings sheet; duplicate fixed)
+- [ ] User-visible error message when `POST /api/*` fails on **expense / top-up / payday / goal** sheets (settings + export show errors)
+- [x] CSV import on `/import` — file picker, template, preview table, confirm (`source: "csv"`)
+- [x] Busy state blocks double-submit on expense, top-up, payday, new jar, settings
 - [ ] Manual QA script: one path each for expense, top-up, payday, new jar
 
 **P3 sign-off check:** With backend up, every bottom-bar and sheet primary button completes or shows validation.
@@ -529,9 +541,10 @@ Update checkboxes in PRs that belong to that owner. Do not tick another person�
 - [x] `src/lib/seed.ts` — demo dataset (parallel writes; needs stable API)
 - [x] Types/enums aligned with `schema.ts` (categories, channels, jar colors)
 - [x] UI wiring in `App.tsx` for forecast “what if purchase”, invisible spend, subscriptions
-- [ ] Vitest (`npm run test`) for `summary`, `cashFlowForecast`, `cutBack`, `savingsStreak`
+- [x] Vitest (`npm run test`) — `csv-import.test.ts` (validation + duplicates; 18/19 passing)
+- [ ] Vitest for `summary`, `cashFlowForecast`, `cutBack`, `savingsStreak` in `finance.ts`
 - [ ] Spreadsheet spot-check doc or test vectors (sample month of txs)
-- [ ] Footnote copy reviewed (“estimate, not guarantee”) EN + 繁
+- [ ] Footnote copy reviewed (“estimate, not guarantee”) EN + 繁 (partial `footnote` string only)
 - [ ] Minor-unit / decimal policy documented if rubric requires it
 
 **P4 sign-off check:** Numbers on dashboard match hand calculation for one fixed fixture (in test or doc).
@@ -547,9 +560,10 @@ Update checkboxes in PRs that belong to that owner. Do not tick another person�
 - [x] `PLAN.md` — team split + this progress section
 - [ ] ESLint clean run documented (`npm run lint`) in README/PR template
 - [ ] Playwright (or similar) smoke: load → demo → log expense → refresh
-- [ ] &lt;5 min demo checklist for judges (step list in README)
+- [x] Demo checklist for judges — `README.md` § Demo walkthrough (~5 min path)
 - [ ] a11y pass: sheet labels, `aria-label` on icon buttons, charts with privacy mode
-- [ ] Submission assets (deck / video / poster) — outside repo
+- [x] Submission demo video — `docs/demo/savings-jars-demo.mp4` + Remotion `demo-video/`
+- [ ] Slide deck / poster — outside repo (optional)
 
 **P5 sign-off check:** Switch 繁 + hide amounts during demo; no missing i18n keys in console.
 
@@ -559,16 +573,16 @@ Update checkboxes in PRs that belong to that owner. Do not tick another person�
 
 - [x] Single command `npm run dev` serves UI + API
 - [x] `npm run build` succeeds
-- [ ] `npm run lint` passes with zero new errors (run before merge)
-- [ ] No `npm audit fix --force`
-- [ ] Team agrees who owns next: CSV import vs Phase B vs auth
+- [ ] `npm run lint` passes with zero errors (13 existing — react-refresh / hooks)
+- [x] No `npm audit fix --force` (team discipline)
+- [x] Direction: **CSV client MVP on `main`**; static Railway + offline data; Phase B / auth deferred unless rubric requires
 
 ### Quick status snapshot
 
 | Person | Progress (approx.) | Blocker / next step |
 |--------|-------------------|---------------------|
-| **P1** | **~90%** | Auth/production optional |
-| **P2** | **~95%** | Polish only (CSV route shell until P3) |
-| **P3** | **~75%** | API error UX, CSV |
-| **P4** | **~60%** | Vitest + fixture checks |
-| **P5** | **~65%** | E2E smoke + demo script |
+| **P1** | **~92%** | Auth optional; document Railway vs local dev in README |
+| **P2** | **~98%** | Naming polish only |
+| **P3** | **~88%** | Save errors on non-settings sheets; manual QA script |
+| **P4** | **~70%** | `finance.ts` Vitest; fix CSV HK$ thousands test |
+| **P5** | **~75%** | Playwright smoke; ESLint clean; a11y pass |
