@@ -1,265 +1,264 @@
 # Savings Jars HK / PocketGoals HK — 香港青年儲蓄助手
 
-Bilingual, mobile-first **savings jar** dashboard for Hong Kong students and young professionals.  
-**Spec & roadmap:** [`PLAN.md`](PLAN.md) · **UI rules:** [`AGENTS.md`](AGENTS.md)
+Bilingual, mobile-first **savings jar** dashboard for Hong Kong students and young professionals.
+
+| Doc | Purpose |
+|-----|---------|
+| [`PLAN.md`](PLAN.md) | Product spec, milestones, optional Phase B (Express/PostgreSQL) |
+| [`AGENTS.md`](AGENTS.md) | shadcn / Tailwind UI rules for contributors |
+
+**Repository status:** The app is **implemented in this repo root** — React UI, local dev API, SQLite persistence, CSV import, and AI quick log. There is no separate `client/` monorepo folder.
+
+---
 
 ## Demo video
 
 [![Watch the 3-minute demo](docs/demo/thumbnail.jpg)](docs/demo/savings-jars-demo.mp4)
 
-▶️ **[Watch the 3-minute demo](docs/demo/savings-jars-demo.mp4)**: onboarding, safe-to-spend, the cash-flow forecast, savings jars, AI Quick log, goal cost, weekly challenges, insights, and privacy, language and dark mode.
+▶️ **[Watch the 3-minute demo](docs/demo/savings-jars-demo.mp4)** — onboarding, safe-to-spend, cash-flow forecast, savings jars, AI Quick log, weekly challenges, insights, privacy, language, and dark mode.
 
-The video is generated with [Remotion](https://www.remotion.dev/) from a scripted recording of the real app. See [`demo-video/`](demo-video/README.md) to re-record or re-render it.
-
-**Repository status:** Specification and agent guidance live here; application code (`client/`, `server/`, `shared/`, `tests/`) is **not yet scaffolded**.
+The video is built with [Remotion](https://www.remotion.dev/). See [`demo-video/`](demo-video/README.md) to re-record or re-render.
 
 ---
 
-## Key features (what the app does today)
+## Key features
 
 | Area | What you get |
 |------|----------------|
 | **Saving jars** | Named goals (emoji, target HK$), progress rings, top-up, delete |
 | **Transactions** | Log **expense**, **income** (payday), **saving** (jar allocations) |
-| **Safe to spend** | Estimated **per day** and **per week** from income, rent/MPF, savings %, and this month’s spending |
+| **Safe to spend** | **Per day** and **per week** from income, rent/MPF, savings %, and this month’s spending |
 | **Cash-flow forecast** | 30-day balance chart, low-balance warning, “what if I buy X?” |
 | **Charts** | Month income vs expenses vs saved; 6-month net savings; spending by category |
-| **Insights** | “Invisible” small repeat spends, subscription-style recurring charges, cut-back simulator |
-| **Round-up** | Optional virtual spare change into a jar when logging expenses (HK$10 / HK$50) |
-| **Payday split** | Log salary and auto-split a % across all jars |
+| **Insights** | “Invisible” small repeat spends, subscriptions, cut-back simulator |
+| **Round-up** | Optional virtual spare change into a jar (HK$10 / HK$50) |
+| **Payday split** | Log salary and auto-split a % across jars |
+| **Quick log** | Natural-language / voice expense parsing (dev server → HKBU GenAI or Ollama) |
+| **Import / export** | CSV import (`/import`), JSON backup + CSV export in Settings |
 | **Privacy** | Hide all HK$ amounts (header eye icon) |
-| **Language** | English ↔ 繁體 (header toggle) |
+| **Language** | English ↔ 繁體 |
 | **Theme** | Light / dark mode |
-| **Demo data** | One-tap sample jars and transactions when the app is empty |
+| **Demo data** | One-tap sample jars and transactions when empty |
+| **Offline fallback** | If `/api` is unreachable, collections fall back to `localStorage` |
 
 **HK payment channels** on expenses: Octopus, FPS, PayMe, Alipay HK, credit, cash, bank, other.
 
 ---
 
-## How to use the app
-
-### Run locally
+## Quick start
 
 ```bash
-cd "/path/to/BUHack2"
-npm install          # requires shadcn@4.23.0 in package.json
+cd FinDashboard-BUHack2
+npm install          # keep shadcn@4.23.0 in package.json
 npm run dev
 ```
 
-Open **http://localhost:5173** (or the Network URL shown in the terminal on your phone).
+Open **http://localhost:5173** (or the Network URL from the terminal for a phone on the same Wi‑Fi).
 
-| Layer | Choice |
-|-------|--------|
-| Frontend | React, **TypeScript**, Vite Plus, TanStack Router, Tailwind CSS v4, shadcn/ui, Lucide React |
-| Backend | Vite Plus with `@omg-dev/vite-plugin` and `@omg-dev/server`, local SQLite database |
-| Data access | `@omg-dev/sdk` collections, Drizzle ORM, Better Drizzle |
-| Shared | Typed pure finance and preference modules in `src/lib/` |
-| Validation | ESLint and Vite Plus production build |
-| Defaults | HKD, `Asia/Hong_Kong`, English + Traditional Chinese |
+| Requirement | Detail |
+|-------------|--------|
+| Node | **22+** (see `package.json` `engines`) |
+| Package manager | **npm** (`package-lock.json` is tracked) |
+| Default persistence | SQLite at **`.vibes/data.db`** (gitignored) |
 
-Use the Vibes development plugin for local API routes, database access, and realtime collection updates. The current prototype runs in credential-free Demo mode with fictional local data.
+On first run with an empty database you are sent to **`/onboarding`**. Tap **Try demo** or set up your own budget.
 
-1. If the screen is empty, tap **Load demo data** (seeds jars, settings, and sample transactions).
-2. Or open **Settings** (gear) and enter monthly income, rent, utilities, MPF, and savings %.
-
-### Header
+### Header controls
 
 | Control | Action |
 |---------|--------|
 | **EN / 中** | Switch language |
-| **Eye** | Hide or show all money amounts |
+| **Eye** | Hide or show money amounts |
 | **Sun / Moon** | Dark mode |
-| **Gear** | Budget settings, round-up, **Clear all data** |
+| **Gear** | Budget, round-up, export, **Clear all data** |
 
-### Bottom bar (main actions)
+### Screens (bottom navigation)
 
-- Mobile-first dashboard with savings summary and **safe-to-spend** estimate
-- Virtual saving jars with targets, progress, top-ups, and deletion
-- Expense logging with categories, payment channels, recurring charges, and round-up savings
-- Payday income logging with automatic savings split across jars
-- Cash-flow forecast with planned-purchase impact preview
-- Spending charts, recent activity, subscription detection, and cut-back insights
-- Budget settings for income, rent, utilities, MPF, savings percentage, and round-up amount
-- Privacy toggle for hiding balances, bilingual English/Traditional Chinese UI, and light/dark theme
-- Demo seed data with local SQLite persistence and realtime collection updates
+| Route | File | Role |
+|-------|------|------|
+| `/` | `src/App.tsx` | Dashboard: safe-to-spend, forecast, jars, charts, insights |
+| `/activity` | `src/views/activity-view.tsx` | Full transaction list |
+| `/goals` | `src/views/goals-view.tsx` | Jar management |
+| `/import` | `src/views/import-view.tsx` | CSV import |
+| `/onboarding` | `src/Onboarding.tsx` | First-run budget + jars (no bottom nav until you finish) |
 
-### Dashboard (scroll)
-
-- **Total saved** and safe-to-spend today / this week  
-- **Savings streak** (weeks with at least one save)  
-- **Forecast** card and purchase simulator  
-- **Jar cards** — swipe horizontally; **+ New jar**  
-- **Charts** and **recent activity** (delete rows with trash icon)  
-- **Insights** — habits, subscriptions, cut-back slider  
-```text
-React (Tailwind / TanStack Router) ──SDK collections──► Vite Plus + Vibes API ──► SQLite
-                                                        └──► Local realtime updates
-```
-
-### Typical flow
-
-1. No database logic in React components; use SDK collections and the Vibes API.
-2. Financial formulas live in **typed pure modules** under `src/lib/`; keep display logic separate from data access.
-3. The current prototype runs in **Demo mode** with local SQLite persistence and no credentials. Account mode is not implemented yet.
-4. AI (when added) uses an allowlisted tool set only—no unrestricted SQL or transfers.
+Global sheets (expense, top-up, payday, new jar, settings, Quick log) live in `src/components/AppLayout.tsx` and open from the bottom bar or dashboard actions.
 
 ---
 
-## Is the backend working?
+## Project structure
 
-**Short answer (local dev):** **Yes.** `npm run dev` mounts a **Node + SQLite** collection API that matches what `useCollection` expects. Data lives in **`.data/pocketgoals.sqlite`** (gitignored).
-
-| Layer | Status | Notes |
-|-------|--------|--------|
-| **Local dev API** | **Active** | `server/vite-local-api-plugin.ts` when `NODE_RUNTIME=node` |
-| **REST** | **Active in dev** | `GET/POST /api/goals`, `/api/transactions`, `/api/settings` (+ `GET /api/export` JSON backup) |
-| **Realtime** | **Minimal in dev** | WebSocket ` /__vibes_sub` sends snapshots; SSE keepalive at `/__vibes_events` |
-| **Custom Express + PostgreSQL** | **Not implemented** | Optional “Phase B” in `PLAN.md` |
-| **Full `@omg-dev/vite-plugin`** | **Optional** | Used when **not** on Node runtime (e.g. hosted Vibes/Bun builds) |
-
-**Smoke test:** Add a jar → refresh the page → the jar is still there. In DevTools Network, `POST /api/goals` should return **200** and JSON with an `id`.
-
-**Export:** Settings → **Download JSON backup** (or open `/api/export`).
-### Local SQLite testing
-
-The Vite plugin already provides a local SQLite database for development. Run
-the SQLite-backed mode with Bun:
-
-```bash
-bun run dev:sqlite
-```
-
-By default, the database is stored at `.vibes/data.db` and uses local auth.
-Override the path with `VIBES_DB`, for example:
-
-```bash
-VIBES_DB=.vibes/test.db bun run dev:sqlite
-```
-
-`bun run dev` runs Vite under Bun with the vibes plugin (local auth). Without
-Bun, use `npm run dev:sqlite`: the vibes plugin is Bun-only, so under Node the
-local SQLite plugin serves `/api/*` instead.
-
-### Demo walkthrough
-
-1. Open `/` on an empty database — you are redirected to `/onboarding`.
-2. **Try demo** seeds four jars, six months of paydays and a month of
-   spending, then opens the dashboard with a **Demo data** badge in the header.
-   (Or **Set up budget** to start from your own numbers; saving lands you on
-   the dashboard.)
-3. On the dashboard: hero safe-to-spend, the 30-day cash-flow forecast (type a
-   large amount into **Test a purchase** to see a danger zone), jars, cash
-   flow, categories, and insights (invisible spend, subscriptions, cut-back).
-4. Use the bottom bar to log an expense (with round-up), top up a jar or record
-   a payday split.
-5. **Settings → Clear all data** returns you to onboarding for the next run.
-
-## Suggested build order
-
-**Production `npm run build`:** Outputs static SPA only; pair with Phase B or a hosted Omg deploy for server-backed persistence.
-
-**Deploy note (BUHack demo):** Run `npm run dev` on a laptop or VM for judges (API + SQLite). For static hosting, add Phase B Express or reverse-proxy to a machine running the dev stack until a production API ships.
-
----
-
-## Program structure (repository)
+High-level layout for GitHub browsers and new contributors:
 
 ```text
-BUHack2/
-├── README.md                 # This file — usage, backend status, gaps
-├── PLAN.md                   # Roadmap, milestones, Phase B (Express/Postgres)
-├── AGENTS.md                 # shadcn / Tailwind UI rules (do not break)
-├── package.json
-├── package-lock.json         # Commit this; pin shadcn@4.23.0
-├── schema.ts                 # Data model: goals, transactions, settings
-├── vite.config.ts            # Vite+, React, Tailwind, TanStack Router, vibes plugin
+FinDashboard-BUHack2/
+├── schema.ts                 # @omg-dev collections: goals, transactions, settings
+├── vite.config.ts            # Vite+, router, Tailwind, local DB + AI plugins
+├── package.json / package-lock.json
 ├── index.html
-├── icons/
-│   └── piggyBank.jpg         # Source for app icons
-├── public/
-│   ├── favicon-32.png
-│   ├── favicon-192.png
-│   └── icons/                # PWA / apple-touch icons (from piggyBank)
-├── server/
-│   ├── db.ts                 # Drizzle read helper for @omg-dev platform builds
-│   ├── local-db.ts           # SQLite schema + CRUD (dev)
-│   ├── local-api.ts          # REST handlers (/api/*)
-│   └── vite-local-api-plugin.ts  # Vite middleware (enabled under NODE_RUNTIME=node)
+├── public/                   # PWA icons, CSV template (templates/transactions-template.csv)
+├── server/                   # Dev-only HTTP middleware (not in production static build)
+│   ├── local-db.ts           # SQLite plugin wired by vite.config (primary dev backend)
+│   ├── local-api.ts          # Shared REST handlers (/api/*, /api/export)
+│   ├── ai-parse.ts           # POST /ai/parse-expense (API keys stay on server)
+│   ├── db.ts                   # Drizzle helper for platform builds
+│   └── vite-local-api-plugin.ts  # Alternate Vite plugin (not registered in vite.config today)
 ├── src/
-│   ├── main.tsx              # React entry
-│   ├── App.tsx               # Main dashboard UI
-│   ├── index.css             # Tailwind + design tokens
+│   ├── main.tsx              # TanStack Router bootstrap
+│   ├── App.tsx               # Home dashboard
+│   ├── Onboarding.tsx
+│   ├── index.css             # Tailwind v4 + semantic design tokens
 │   ├── routeTree.gen.ts      # Generated — do not edit
-│   ├── routes/
-│   │   ├── __root.tsx        # PrefsProvider (lang, theme, privacy)
-│   │   └── index.tsx         # Route "/" → App
-│   ├── components/
-│   │   ├── Charts.tsx
-│   │   ├── QuickSheets.tsx   # Expense, top-up, payday, goal, settings sheets
-│   │   └── ui/               # shadcn primitives (vendored — do not hand-edit)
-│   ├── lib/
-│   │   ├── finance.ts        # Budget math, insights, types
-│   │   ├── i18n.ts           # EN / 繁 strings
-│   │   ├── prefs.tsx         # Client preferences + localStorage
-│   │   ├── seed.ts           # Demo data loader
-│   │   └── utils.ts
-│   ├── db.generated.ts         # Collection bindings → /api/*
+│   ├── routes/                 # File-based TanStack Router routes
+│   ├── views/                  # Page bodies for /activity, /goals, /import
+│   ├── components/             # App UI (Charts, QuickSheets, QuickLog, …)
+│   │   └── ui/                 # Vendored shadcn primitives — do not hand-edit
+│   ├── lib/                    # Pure logic + data hooks (see below)
+│   ├── db.generated.ts
 │   └── db.drizzle.ts
-├── functions/                # Placeholder for serverless hooks
-└── dist/                     # Build output (gitignored)
+├── demo-video/                 # Remotion demo (separate npm package)
+├── docs/demo/                  # Demo video assets
+├── functions/                  # Placeholder for serverless hooks
+├── PLAN.md · AGENTS.md · README.md
+└── vitest.config.ts
 ```
 
-**Ignored locally (not in git):** `node_modules/`, `.cursor/`, `.vibes/`, `dist/`, `.env*`
+**Ignored locally:** `node_modules/`, `.vibes/`, `dist/`, `.env*`, `.cursor/`
 
 ---
 
-## Technology stack (actual)
+## How the app is wired
+
+```text
+main.tsx
+  └── RouterProvider
+        └── routes/__root.tsx
+              PrefsProvider          (lang, theme, hide balances — localStorage)
+              DataBackendProvider    (probe /api → "api" or "offline")
+              SavingsDataProvider    (goals, txs, settings + CRUD api)
+              AppLayout              (header, bottom nav, sheets)
+                    └── <Outlet />   (child route: /, /activity, …)
+```
+
+**Data flow (online dev mode):**
+
+```text
+React views
+  → useSavingsData() / useAppCollection()
+  → @omg-dev/sdk useCollection
+  → GET/POST /api/goals | /api/transactions | /api/settings
+  → server/local-db.ts (Vite middleware)
+  → SQLite (.vibes/data.db by default)
+```
+
+**Quick log (optional AI):**
+
+```text
+QuickLog.tsx → fetch POST /ai/parse-expense → server/ai-parse.ts
+  → HKBU GenAI (if HKBU_GENAI_API_KEY) or local Ollama
+  → reviewed items → api.addTx()
+```
+
+See [`.env.example`](.env.example) for AI environment variables.
+
+---
+
+## Important files
+
+### Data & schema
+
+| File | Role |
+|------|------|
+| [`schema.ts`](schema.ts) | Single source of truth for collection fields and enums |
+| [`src/lib/data-backend.tsx`](src/lib/data-backend.tsx) | API vs offline probe; `useAppCollection` wrapper |
+| [`src/lib/savings-data.tsx`](src/lib/savings-data.tsx) | App-wide data context, optimistic merges, `api` CRUD |
+| [`src/lib/offline-store.ts`](src/lib/offline-store.ts) | localStorage collections when `/api` is down |
+
+### Domain logic (`src/lib/finance.ts`)
+
+Pure TypeScript (no React). Main types: `Goal`, `Tx`, `Settings`.
+
+| Function | Purpose |
+|----------|---------|
+| `summary` | Safe-to-spend per day/week, monthly totals |
+| `goalSaved` | Saved amount per jar from `saving` transactions |
+| `cashFlowForecast` | 30-day projected balance |
+| `calculateMPF` | HK statutory MPF (5%, caps) |
+| `categoryTotals` / `monthlySeries` | Chart inputs |
+| `invisibleSpend` / `subscriptions` | Spending insights |
+| `cutBack` | Cut-back simulator |
+| `savingsStreak` / `challengeStatus` / `weekRecap` | Weekly challenge |
+| `spareChange` | Round-up helper |
+| `money`, `todayISO`, `addDays` | Formatting and dates |
+
+### UI building blocks
+
+| File | Role |
+|------|------|
+| [`src/components/AppLayout.tsx`](src/components/AppLayout.tsx) | Shell, navigation, demo/csv banners, sheet orchestration |
+| [`src/components/QuickSheets.tsx`](src/components/QuickSheets.tsx) | Expense, top-up, payday, goal, settings sheets |
+| [`src/components/QuickLog.tsx`](src/components/QuickLog.tsx) | AI / voice quick expense entry |
+| [`src/components/Charts.tsx`](src/components/Charts.tsx) | Progress rings, bar/line charts |
+| [`src/lib/i18n.ts`](src/lib/i18n.ts) | EN / 繁 copy |
+| [`src/lib/prefs.tsx`](src/lib/prefs.tsx) | User preferences provider |
+| [`src/lib/seed.ts`](src/lib/seed.ts) | `seedDemo(api)` sample data |
+| [`src/lib/csv-import.ts`](src/lib/csv-import.ts) | CSV parse/validate (unit-tested) |
+| [`src/lib/csv-export.ts`](src/lib/csv-export.ts) | Export transactions to CSV |
+
+### Routing
+
+Add a screen by creating `src/routes/<name>.tsx`; `@tanstack/router-plugin` regenerates `src/routeTree.gen.ts`. Navigate with `<Link to="…">` from `@tanstack/react-router`, not raw `<a href>`.
+
+---
+
+## Technology stack
 
 | Layer | Choice |
 |-------|--------|
-| Frontend | React 19, TypeScript, Vite+, TanStack Router |
-| Styling | Tailwind v4, shadcn 4.23.0 |
+| UI | React 19, TypeScript, TanStack Router |
+| Build | Vite+ (`vite-plus`), `@vitejs/plugin-react`, `@omg-dev/vite-plugin` (optional on Bun) |
+| Styling | Tailwind CSS v4, **shadcn 4.23.0**, Lucide icons |
 | Data client | `@omg-dev/sdk` (`useCollection`) |
 | Schema | `@omg-dev/schema` (`schema.ts`) |
-| Dev persistence | Local SQLite via `server/*` (`node:sqlite`, Node **22+**) or `@omg-dev/vite-plugin` on Bun/Vibes hosts |
-| Lint | ESLint |
+| Dev persistence | Node `node:sqlite` via `server/local-db.ts` |
+| Tests | Vitest (`src/lib/csv-import.test.ts`) |
+| Defaults | HKD, `Asia/Hong_Kong`, English + Traditional Chinese |
 
 ---
 
-## What’s implemented vs missing
+## Is the backend working? (local dev)
 
-### Implemented (~60% competition demo)
+**Yes** for `npm run dev` on Node: `vite.config.ts` enables `localDbPlugin` when `NODE_RUNTIME=node` (default in the `dev` script).
 
-- [x] Single-page savings dashboard  
-- [x] Jars, expenses, payday, top-up, settings  
-- [x] Safe-to-spend (monthly model), forecast, insights  
-- [x] Bilingual UI, dark mode, hide amounts  
-- [x] Demo seed  
-- [x] App icons from `icons/piggyBank.jpg`  
-- [x] `npm run dev` / `npm run build` (with correct `shadcn` version)  
-
-### Missing or incomplete (priority fixes)
-
-| Item | Severity | Notes |
-|------|----------|--------|
-| **Reliable local `/api` in dev** | **Done** | Node SQLite plugin — see [Backend](#is-the-backend-working) |
-| **User accounts / login** | High | No multi-user auth (`@omg-dev/auth` not wired) |
-| **CSV import UI** | Medium | `source: "csv"` exists in schema only |
-| **Export data (JSON/CSV)** | Medium | Only “Clear all” in settings |
-| **Separate routes** (Goals, Activity, Import) | Low | Only `/` today |
-| **Express + PostgreSQL (Phase B)** | Optional | Per `PLAN.md` if rubric requires it |
-| **Automated tests** | Medium | No Vitest/Playwright scripts in `package.json` |
-| **Minor-unit ledger rules** | Medium | Whole HKD amounts; no transfer/refund types |
-| **Production deploy docs** | Medium | Omg/Vibes or custom host TBD |
-| **README/PLAN sync** | Done | This README matches current code |
-
-### Dependency hygiene
-
-| Issue | Action |
+| Piece | Status |
 |-------|--------|
-| Wrong `shadcn@1.0.0` | Keep **`"shadcn": "4.23.0"`** in `package.json` |
-| `npm audit fix --force` | **Avoid** — breaks shadcn CSS import |
-| `minimatch` audit noise | Dev-only ESLint chain; optional `overrides` in `package.json` |
+| REST | `GET/POST/PATCH/DELETE` on `/api/goals`, `/api/transactions`, `/api/settings` |
+| Backup | `GET /api/export` (JSON) — also in Settings |
+| Realtime | WebSocket `/__vibes_sub` snapshots + SSE keepalive `/__vibes_events` |
+| DB file | **`.vibes/data.db`** unless `VIBES_DB=/path/to/file.db` |
+| Production `npm run build` | Static SPA only (`VIBES_LOCAL_DB=false`); pair with hosted API or Phase B per `PLAN.md` |
+| User accounts | Not wired — single local user / demo mode |
+| Express + PostgreSQL | Optional Phase B — not in this repo yet |
+
+**Smoke test:** Create a jar → refresh → jar persists. In DevTools, `POST /api/goals` should return JSON with an `id`.
+
+Override the database path:
+
+```bash
+VIBES_DB=.vibes/test.db npm run dev
+```
+
+When not using Node (e.g. Bun with `@omg-dev/vite-plugin`), the same collection paths can be served by the Vibes stack instead of `local-db.ts`.
+
+---
+
+## Demo walkthrough
+
+1. Open `/` on an empty DB → redirect to `/onboarding`.
+2. **Try demo** seeds four jars, six months of paydays, and sample spending; header shows a **Demo data** badge. Or **Set up budget** with your numbers.
+3. On `/`: safe-to-spend, 30-day forecast (**Test a purchase**), jars, cash flow, categories, insights.
+4. Bottom bar: log expense (round-up), top up a jar, payday split, Quick log.
+5. **Settings → Clear all data** → back to onboarding.
 
 ---
 
@@ -268,32 +267,57 @@ BUHack2/
 | Command | Purpose |
 |---------|---------|
 | `npm install` | Install dependencies |
-| `npm run dev` | Development server (port 5173) |
+| `npm run dev` | Dev server (port **5173**, host `0.0.0.0`) |
 | `npm run build` | Production build → `dist/` |
 | `npm run preview` | Serve `dist/` locally |
 | `npm run lint` | ESLint |
+| `npm run test` | Vitest (`vitest run`) |
 
 ---
 
-## Architecture (target data flow)
+## Implemented vs gaps
 
-```text
-Browser (React)
-    → useCollection → /api/goals | /api/transactions | /api/settings
-    → server/vite-local-api-plugin.ts (Node dev)
-    → .data/pocketgoals.sqlite
-```
+### In the repo today
 
-On Bun/Vibes hosts without `NODE_RUNTIME=node`, the same paths can be served by `@omg-dev/vite-plugin` instead.
+- [x] Multi-route app (`/`, `/activity`, `/goals`, `/import`, `/onboarding`)
+- [x] Jars, expenses, payday, top-up, settings, round-up
+- [x] Safe-to-spend, forecast, charts, insights, weekly challenge
+- [x] Bilingual UI, dark mode, hide amounts, offline fallback
+- [x] Demo seed, CSV import UI + parser tests, JSON/CSV export
+- [x] AI quick log (dev server; requires `.env` keys or Ollama)
+- [x] Local SQLite via `npm run dev`
 
-Future **Phase B** (optional): React → your Express API → PostgreSQL — see `PLAN.md` §14.
+### Not done / optional
+
+| Item | Notes |
+|------|--------|
+| Multi-user auth | `@omg-dev/auth` not integrated |
+| Phase B API | Express + PostgreSQL per `PLAN.md` |
+| Hosted production deploy | Static build needs a backing API |
+| E2E tests | No Playwright suite yet |
+| Minor-unit ledger | Whole HKD integers in UI |
+| Full account sync | No bank / Octopus live feeds |
+
+### Dependency hygiene
+
+| Issue | Action |
+|-------|--------|
+| Wrong `shadcn@1.0.0` | Keep **`"shadcn": "4.23.0"`** |
+| `npm audit fix --force` | **Avoid** — breaks shadcn CSS |
+| UI tokens | Use semantic classes from `AGENTS.md` (`bg-primary`, not `bg-indigo-600`) |
+
+---
+
+## Deploy note (hackathon demo)
+
+Run `npm run dev` on a laptop or VM so judges get API + SQLite on one port. For static hosting only, you still need a collection API (Phase B or a hosted Omg/Vibes deploy) or users stay in offline mode.
 
 ---
 
 ## Course / hackathon
 
 **BUHack2** — HKBU hackathon savings dashboard.  
-Product name in UI: **Savings Jars HK**; documentation may still say **PocketGoals HK**.
+**UI name:** Savings Jars HK · **Spec name:** PocketGoals HK (香港青年儲蓄助手).
 
 ## License
 
